@@ -1,3 +1,7 @@
+import json
+import urllib.parse
+import urllib.request
+import urllib.error
 from datetime import datetime, timedelta
 
 _FILETIME_EPOCH = datetime(1601, 1, 1)
@@ -46,3 +50,33 @@ def group_by_date(results: "list[dict]") -> "dict[str, list[dict]]":
             {"name": item.get("name"), "path": item.get("path")}
         )
     return grouped
+
+
+class EverythingConnectionError(Exception):
+    pass
+
+
+def load_config(path="config.json"):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def fetch_files(config):
+    query = build_search_query(config["scan_paths"], config["extensions"])
+    params = urllib.parse.urlencode({
+        "search": query,
+        "json": 1,
+        "path_column": 1,
+        "date_modified_column": 1,
+    })
+    url = "http://{host}:{port}/?{params}".format(
+        host=config["everything_host"],
+        port=config["everything_port"],
+        params=params,
+    )
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError) as e:
+        raise EverythingConnectionError(str(e))
+    return group_by_date(data.get("results", []))
