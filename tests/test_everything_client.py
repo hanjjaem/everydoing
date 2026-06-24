@@ -1,4 +1,4 @@
-from everything_client import build_search_query, filetime_to_date
+from everything_client import build_search_query, filetime_to_date, group_by_date
 
 
 def test_build_search_query_combines_ext_and_paths():
@@ -27,3 +27,23 @@ def test_filetime_to_date_empty_returns_none():
     assert filetime_to_date("") is None
     assert filetime_to_date(0) is None
     assert filetime_to_date("notanumber") is None
+
+
+def test_group_by_date_groups_and_keeps_name_path():
+    results = [
+        {"name": "a.hwp", "path": "C:\\x\\a.hwp", "date_modified": 134256960000000000},
+        {"name": "b.docx", "path": "C:\\x\\b.docx", "date_modified": 134256960000000000},
+    ]
+    grouped = group_by_date(results)
+    assert grouped == {
+        "2026-06-12": [
+            {"name": "a.hwp", "path": "C:\\x\\a.hwp"},
+            {"name": "b.docx", "path": "C:\\x\\b.docx"},
+        ]
+    }
+
+
+def test_group_by_date_unknown_bucket():
+    results = [{"name": "c.pdf", "path": "C:\\c.pdf", "date_modified": ""}]
+    grouped = group_by_date(results)
+    assert grouped == {"unknown": [{"name": "c.pdf", "path": "C:\\c.pdf"}]}

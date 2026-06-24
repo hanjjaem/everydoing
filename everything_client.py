@@ -28,3 +28,21 @@ def filetime_to_date(filetime: "int | str | None") -> "str | None":
         return None
     dt = _FILETIME_EPOCH + timedelta(microseconds=ticks / 10)
     return dt.strftime("%Y-%m-%d")
+
+
+def group_by_date(results):
+    """Group Everything search results by modified date.
+
+    Args:
+        results: list of dicts, each with keys 'name', 'path', 'date_modified'.
+
+    Returns:
+        dict mapping 'YYYY-MM-DD' (or 'unknown') to list of items with 'name' and 'path'.
+    """
+    grouped = {}
+    for item in results:
+        date = filetime_to_date(item.get("date_modified")) or "unknown"
+        grouped.setdefault(date, []).append(
+            {"name": item.get("name"), "path": item.get("path")}
+        )
+    return grouped
