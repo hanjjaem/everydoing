@@ -107,6 +107,9 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, subprocess.SubprocessError) as e:
             self._send_json(500, {"error": str(e)})
             return
+        if out.returncode != 0:
+            self._send_json(500, {"error": out.stderr.strip() or "folder picker failed"})
+            return
         self._send_json(200, {"path": out.stdout.strip()})
 
 
