@@ -34,7 +34,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             path = "/index.html"
         full = os.path.normpath(os.path.join(STATIC_DIR, path.lstrip("/")))
-        if not full.startswith(STATIC_DIR) or not os.path.isfile(full):
+        if (full != STATIC_DIR and not full.startswith(STATIC_DIR + os.sep)) or not os.path.isfile(full):
             self.send_error(404)
             return
         ctype = "text/html" if full.endswith(".html") else \
@@ -52,7 +52,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", 0))
-        data = json.loads(self.rfile.read(length).decode("utf-8"))
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self._send_json(400, {"error": "invalid body"})
+            return
         target = data.get("path", "")
         if not os.path.exists(target):
             self._send_json(404, {"error": "파일을 찾을 수 없습니다"})
