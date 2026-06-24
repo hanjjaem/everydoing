@@ -11,7 +11,7 @@ def build_search_query(scan_paths: list[str], extensions: list[str]) -> str:
     return ext_part + " " + path_part
 
 
-def filetime_to_date(filetime):
+def filetime_to_date(filetime: "int | str | None") -> "str | None":
     """Windows FILETIME (100ns ticks since 1601-01-01 UTC) to 'YYYY-MM-DD'.
 
     Args:
