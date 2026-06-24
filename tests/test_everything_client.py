@@ -15,8 +15,13 @@ def test_build_search_query_single_path():
 
 
 def test_filetime_to_date_known_value():
-    # 2026-06-12 00:00:00 UTC == FILETIME 134256960000000000
+    # 2026-06-12 00:00:00 UTC == 2026-06-12 09:00:00 KST → local date 2026-06-12
     assert filetime_to_date(134256960000000000) == "2026-06-12"
+
+
+def test_filetime_to_date_uses_local_timezone():
+    # FILETIME for 2026-06-11 20:00 UTC == 2026-06-12 05:00 KST → must group as 2026-06-12
+    assert filetime_to_date(134256816000000000) == "2026-06-12"
 
 
 def test_filetime_to_date_accepts_string():

@@ -2,9 +2,9 @@ import json
 import urllib.parse
 import urllib.request
 import urllib.error
-from datetime import datetime, timedelta
+from datetime import datetime
 
-_FILETIME_EPOCH = datetime(1601, 1, 1)
+_FILETIME_POSIX_OFFSET = 11644473600  # seconds between 1601-01-01 and 1970-01-01
 
 
 def build_search_query(scan_paths: list[str], extensions: list[str]) -> str:
@@ -16,22 +16,18 @@ def build_search_query(scan_paths: list[str], extensions: list[str]) -> str:
 
 
 def filetime_to_date(filetime: "int | str | None") -> "str | None":
-    """Windows FILETIME (100ns ticks since 1601-01-01 UTC) to 'YYYY-MM-DD'.
-
-    Args:
-        filetime: int or str, FILETIME value (100-nanosecond ticks).
-
-    Returns:
-        str in 'YYYY-MM-DD' format, or None if empty/zero/unparseable.
-    """
+    """Windows FILETIME(1601 기준 100ns)을 로컬 시간 기준 'YYYY-MM-DD'로 변환. 불가 시 None."""
     try:
         ticks = int(filetime)
     except (TypeError, ValueError):
         return None
     if ticks <= 0:
         return None
-    dt = _FILETIME_EPOCH + timedelta(microseconds=ticks / 10)
-    return dt.strftime("%Y-%m-%d")
+    posix = ticks / 10**7 - _FILETIME_POSIX_OFFSET
+    try:
+        return datetime.fromtimestamp(posix).strftime("%Y-%m-%d")
+    except (OSError, ValueError, OverflowError):
+        return None
 
 
 def group_by_date(results: "list[dict]") -> "dict[str, list[dict]]":
