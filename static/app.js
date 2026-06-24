@@ -7,9 +7,10 @@ async function load() {
   try {
     const res = await fetch("/api/files");
     if (!res.ok) {
-      const err = await res.json();
+      let detail = "";
+      try { detail = " (" + (await res.json()).error + ")"; } catch (_) {}
       msg.textContent = "Everything HTTP 서버에 연결할 수 없습니다. " +
-        "Everything → 도구 → 옵션 → HTTP 서버를 켰는지, 포트가 config.json과 맞는지 확인하세요. (" + err.error + ")";
+        "Everything → 도구 → 옵션 → HTTP 서버를 켰는지, 포트가 config.json과 맞는지 확인하세요." + detail;
       data = {};
     } else {
       data = await res.json();
@@ -68,21 +69,25 @@ function render() {
 
 function menu(f) {
   const choice = prompt(f.name + "\n1: 파일 열기  2: 폴더 열기  3: 경로 복사\n번호 입력:", "1");
-  if (choice === "1") open(f.path, "file");
-  else if (choice === "2") open(f.path, "folder");
+  if (choice === "1") openFile(f.path, "file");
+  else if (choice === "2") openFile(f.path, "folder");
   else if (choice === "3") navigator.clipboard.writeText(f.path);
 }
 
-async function open(path, mode) {
-  const res = await fetch("/api/open", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, mode }),
-  });
-  if (!res.ok) alert("파일을 찾을 수 없습니다");
+async function openFile(path, mode) {
+  try {
+    const res = await fetch("/api/open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, mode }),
+    });
+    if (!res.ok) alert("파일을 찾을 수 없습니다");
+  } catch (e) {
+    alert("서버에 연결할 수 없습니다: " + e);
+  }
 }
 
-document.getElementById("prev").onclick = () => { cur.setMonth(cur.getMonth() - 1); render(); };
-document.getElementById("next").onclick = () => { cur.setMonth(cur.getMonth() + 1); render(); };
+document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); render(); };
+document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
 document.getElementById("refresh").onclick = load;
 load();
