@@ -22,8 +22,17 @@
     <strong id="label"></strong>
     <button id="next">▶</button>
     <button id="refresh">새로고침</button>
+    <button id="settings">폴더 설정</button>
   </header>
   <div id="msg"></div>
+  <div id="panel" style="display:none;border:1px solid #ccc;padding:12px;margin:8px 0;max-width:600px;">
+    <strong>스캔 폴더</strong>
+    <ul id="pathlist" style="list-style:none;padding:0;"></ul>
+    <button id="addPath">폴더 추가</button>
+    <button id="savePaths">저장</button>
+    <button id="closePanel">닫기</button>
+    <span id="panelMsg" style="color:#b91c1c;"></span>
+  </div>
   <div id="weekhead" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-weight:bold;">
     <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
   </div>

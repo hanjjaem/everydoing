@@ -90,4 +90,52 @@ async function openFile(path, mode) {
 document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); render(); };
 document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
 document.getElementById("refresh").onclick = load;
+
+let editPaths = [];
+
+function renderPaths() {
+  const ul = document.getElementById("pathlist");
+  ul.innerHTML = "";
+  editPaths.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.textContent = p + " ";
+    const x = document.createElement("button");
+    x.textContent = "×";
+    x.onclick = () => { editPaths.splice(i, 1); renderPaths(); };
+    li.appendChild(x);
+    ul.appendChild(li);
+  });
+}
+
+async function openPanel() {
+  document.getElementById("panelMsg").textContent = "";
+  const res = await fetch("/api/config");
+  const cfg = await res.json();
+  editPaths = (cfg.scan_paths || []).slice();
+  renderPaths();
+  document.getElementById("panel").style.display = "block";
+}
+
+async function addPath() {
+  const res = await fetch("/api/pick-folder", { method: "POST" });
+  if (!res.ok) { document.getElementById("panelMsg").textContent = "폴더 선택 실패"; return; }
+  const { path } = await res.json();
+  if (path && !editPaths.includes(path)) { editPaths.push(path); renderPaths(); }
+}
+
+async function savePaths() {
+  const res = await fetch("/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scan_paths: editPaths }),
+  });
+  if (!res.ok) { document.getElementById("panelMsg").textContent = "저장 실패"; return; }
+  document.getElementById("panel").style.display = "none";
+  load();
+}
+
+document.getElementById("settings").onclick = openPanel;
+document.getElementById("addPath").onclick = addPath;
+document.getElementById("savePaths").onclick = savePaths;
+document.getElementById("closePanel").onclick = () => { document.getElementById("panel").style.display = "none"; };
 load();
