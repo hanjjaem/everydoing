@@ -76,3 +76,42 @@ def fetch_files(config: dict) -> "dict[str, list[dict]]":
     except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
         raise EverythingConnectionError(str(e))
     return group_by_date(data.get("results", []))
+
+
+def add_scan_path(scan_paths: "list[str]", new_path: str) -> "list[str]":
+    """Add a new scan path to the list if it's not empty and not already present.
+
+    Args:
+        scan_paths: existing list of scan paths.
+        new_path: path to add.
+
+    Returns:
+        new list with new_path appended, or copy of original if new_path is empty or duplicate.
+    """
+    if not new_path or new_path in scan_paths:
+        return list(scan_paths)
+    return list(scan_paths) + [new_path]
+
+
+def remove_scan_path(scan_paths: "list[str]", target: str) -> "list[str]":
+    """Remove all occurrences of target from scan_paths.
+
+    Args:
+        scan_paths: list of scan paths.
+        target: path to remove.
+
+    Returns:
+        new list without items equal to target.
+    """
+    return [p for p in scan_paths if p != target]
+
+
+def save_config(config: dict, path: str = "config.json") -> None:
+    """Save config dict to JSON file with UTF-8 encoding and indentation.
+
+    Args:
+        config: configuration dict to save.
+        path: file path to write to (default: config.json).
+    """
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
