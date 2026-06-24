@@ -30,7 +30,7 @@ def filetime_to_date(filetime: "int | str | None") -> "str | None":
     return dt.strftime("%Y-%m-%d")
 
 
-def group_by_date(results):
+def group_by_date(results: "list[dict]") -> "dict[str, list[dict]]":
     """Group Everything search results by modified date.
 
     Args:
