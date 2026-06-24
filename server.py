@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
@@ -28,6 +29,9 @@ class Handler(BaseHTTPRequestHandler):
             except ec.EverythingConnectionError as e:
                 self._send_json(503, {"error": str(e)})
             return
+        if path == "/api/config":
+            self._send_json(200, {"scan_paths": CONFIG.get("scan_paths", [])})
+            return
         self._serve_static(path)
 
     def _serve_static(self, path):
@@ -48,15 +52,25 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/open":
+        route = urlparse(self.path).path
+        if route not in ("/api/open", "/api/config", "/api/pick-folder"):
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length else b""
         try:
-            data = json.loads(self.rfile.read(length).decode("utf-8"))
+            data = json.loads(raw.decode("utf-8")) if raw else {}
         except (json.JSONDecodeError, UnicodeDecodeError):
             self._send_json(400, {"error": "invalid body"})
             return
+        if route == "/api/open":
+            self._handle_open(data)
+        elif route == "/api/config":
+            self._handle_save_config(data)
+        else:
+            self._handle_pick_folder()
+
+    def _handle_open(self, data):
         target = data.get("path", "")
         if not os.path.exists(target):
             self._send_json(404, {"error": "파일을 찾을 수 없습니다"})
@@ -66,6 +80,34 @@ class Handler(BaseHTTPRequestHandler):
         else:
             os.startfile(target)
         self._send_json(200, {"ok": True})
+
+    def _handle_save_config(self, data):
+        global CONFIG
+        scan_paths = data.get("scan_paths")
+        if not isinstance(scan_paths, list):
+            self._send_json(400, {"error": "scan_paths(list) 필요"})
+            return
+        try:
+            cfg = ec.load_config()
+            cfg["scan_paths"] = scan_paths
+            ec.save_config(cfg)
+            CONFIG = cfg
+        except OSError as e:
+            self._send_json(500, {"error": str(e)})
+            return
+        self._send_json(200, {"ok": True})
+
+    def _handle_pick_folder(self):
+        helper = os.path.join(os.path.dirname(__file__), "pick_folder.py")
+        try:
+            out = subprocess.run(
+                [sys.executable, helper],
+                capture_output=True, text=True, timeout=120,
+            )
+        except (OSError, subprocess.SubprocessError) as e:
+            self._send_json(500, {"error": str(e)})
+            return
+        self._send_json(200, {"path": out.stdout.strip()})
 
 
 if __name__ == "__main__":
