@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>업무정리캘린더</title>
+<style>
+  body { font-family: "Malgun Gothic", sans-serif; margin: 20px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  #grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cell { border: 1px solid #ddd; min-height: 72px; padding: 4px; font-size: 12px; }
+  .cell.today { outline: 2px solid #3b82f6; }
+  .daynum { color: #888; }
+  .badge { background: #3b82f6; color: #fff; border-radius: 8px; padding: 0 6px; cursor: pointer; }
+  .files { margin-top: 4px; }
+  .file { cursor: pointer; color: #1d4ed8; text-decoration: underline; display: block; }
+  #msg { color: #b91c1c; }
+</style>
+</head>
+<body>
+  <header>
+    <button id="prev">◀</button>
+    <strong id="label"></strong>
+    <button id="next">▶</button>
+    <button id="refresh">새로고침</button>
+  </header>
+  <div id="msg"></div>
+  <div id="weekhead" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-weight:bold;">
+    <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+  </div>
+  <div id="grid"></div>
+  <script src="app.js"></script>
+</body>
+</html>

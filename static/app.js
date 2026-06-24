@@ -1,0 +1,93 @@
+let data = {};
+let cur = new Date();
+
+async function load() {
+  const msg = document.getElementById("msg");
+  msg.textContent = "";
+  try {
+    const res = await fetch("/api/files");
+    if (!res.ok) {
+      let detail = "";
+      try { detail = " (" + (await res.json()).error + ")"; } catch (_) {}
+      msg.textContent = "Everything HTTP 서버에 연결할 수 없습니다. " +
+        "Everything → 도구 → 옵션 → HTTP 서버를 켰는지, 포트가 config.json과 맞는지 확인하세요." + detail;
+      data = {};
+    } else {
+      data = await res.json();
+    }
+  } catch (e) {
+    msg.textContent = "서버 응답을 받을 수 없습니다: " + e;
+    data = {};
+  }
+  render();
+}
+
+function key(y, m, d) {
+  return y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+}
+
+function render() {
+  const y = cur.getFullYear(), m = cur.getMonth();
+  document.getElementById("label").textContent = y + "년 " + (m + 1) + "월";
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m + 1, 0).getDate();
+  const today = new Date();
+  for (let i = 0; i < first; i++) grid.appendChild(document.createElement("div"));
+  for (let d = 1; d <= days; d++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    if (y === today.getFullYear() && m === today.getMonth() && d === today.getDate())
+      cell.classList.add("today");
+    const num = document.createElement("div");
+    num.className = "daynum";
+    num.textContent = d;
+    cell.appendChild(num);
+    const files = data[key(y, m, d)] || [];
+    if (files.length) {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = files.length + "개";
+      const box = document.createElement("div");
+      box.className = "files";
+      box.style.display = "none";
+      badge.onclick = () => { box.style.display = box.style.display === "none" ? "block" : "none"; };
+      files.forEach(f => {
+        const a = document.createElement("span");
+        a.className = "file";
+        a.textContent = f.name;
+        a.onclick = () => menu(f);
+        box.appendChild(a);
+      });
+      cell.appendChild(badge);
+      cell.appendChild(box);
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function menu(f) {
+  const choice = prompt(f.name + "\n1: 파일 열기  2: 폴더 열기  3: 경로 복사\n번호 입력:", "1");
+  if (choice === "1") openFile(f.path, "file");
+  else if (choice === "2") openFile(f.path, "folder");
+  else if (choice === "3") navigator.clipboard.writeText(f.path);
+}
+
+async function openFile(path, mode) {
+  try {
+    const res = await fetch("/api/open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, mode }),
+    });
+    if (!res.ok) alert("파일을 찾을 수 없습니다");
+  } catch (e) {
+    alert("서버에 연결할 수 없습니다: " + e);
+  }
+}
+
+document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); render(); };
+document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
+document.getElementById("refresh").onclick = load;
+load();
