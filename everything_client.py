@@ -115,3 +115,40 @@ def save_config(config: dict, path: str = "config.json") -> None:
     """
     with open(path, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
+
+
+def normalize_extension(raw: str) -> "str | None":
+    """Normalize a file extension: strip whitespace, remove ONE leading dot, lowercase.
+
+    Empty result (after normalization) returns None. None input returns None.
+
+    Args:
+        raw: raw extension string (may include dot, spaces).
+
+    Returns:
+        normalized lowercase extension without leading dot, or None if empty.
+    """
+    if raw is None:
+        return None
+    s = raw.strip()
+    if s.startswith("."):
+        s = s[1:]
+    s = s.strip().lower()
+    return s or None
+
+
+def normalize_extensions(raws: "list") -> "list[str]":
+    """Normalize a list of extensions: map each through normalize_extension, drop None, dedupe preserving order.
+
+    Args:
+        raws: list of raw extension strings.
+
+    Returns:
+        deduplicated list of normalized extensions (without duplicates, order preserved).
+    """
+    out = []
+    for r in raws:
+        e = normalize_extension(r)
+        if e and e not in out:
+            out.append(e)
+    return out

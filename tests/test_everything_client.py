@@ -9,6 +9,8 @@ from everything_client import (
     remove_scan_path,
     save_config,
     load_config,
+    normalize_extension,
+    normalize_extensions,
 )
 
 
@@ -94,3 +96,21 @@ def test_save_then_load_config_roundtrip():
         assert load_config(path) == cfg
     finally:
         os.remove(path)
+
+
+def test_normalize_extension_strips_dot_and_lowercases():
+    assert normalize_extension(" .HWP ") == "hwp"
+
+
+def test_normalize_extension_plain():
+    assert normalize_extension("docx") == "docx"
+
+
+def test_normalize_extension_empty_returns_none():
+    assert normalize_extension("") is None
+    assert normalize_extension("   ") is None
+    assert normalize_extension(".") is None
+
+
+def test_normalize_extensions_dedupes_keeps_order_drops_none():
+    assert normalize_extensions(["PDF", ".pdf", "hwp", "", "docx"]) == ["pdf", "hwp", "docx"]
