@@ -163,6 +163,50 @@
   #extlist { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 10px; }
   #extlist label { font-size: 13px; color: var(--ink-2); }
   #panelMsg { font-size: 12px; color: var(--accent); }
+
+  /* ── 2단 레이아웃 ───────────────────────── */
+  #layout {
+    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: clamp(20px, 3vw, 44px); align-items: start;
+  }
+  @media (max-width: 880px) { #layout { grid-template-columns: 1fr; } }
+
+  /* ── 타임라인 ───────────────────────── */
+  #timeline { display: flex; flex-direction: column; gap: 22px;
+    max-height: 72vh; overflow-y: auto; padding-right: 4px; }
+  .tl-group { display: flex; flex-direction: column; gap: 7px;
+    border-radius: 8px; transition: background .35s; }
+  .tl-group.flash { background: var(--accent-soft); }
+  .tl-date {
+    font-family: var(--serif); font-size: 14px; font-weight: 600; color: var(--ink);
+    padding-bottom: 4px; border-bottom: 1px solid var(--line);
+  }
+  .tl-file {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 6px 8px; margin: 0 -8px; border-radius: 7px; cursor: pointer;
+    transition: background .12s;
+  }
+  .tl-file:hover { background: var(--hover); }
+  .tl-name {
+    font-size: 13.5px; color: var(--ink); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tl-file:hover .tl-name { color: var(--accent); }
+  .tl-actions { display: none; gap: 4px; flex-shrink: 0; }
+  .tl-file:hover .tl-actions { display: flex; }
+  .tl-actions button {
+    font: inherit; font-size: 11px; color: var(--ink-2);
+    background: transparent; border: 1px solid var(--line-2); border-radius: 5px;
+    padding: 2px 7px; cursor: pointer; transition: background .12s, color .12s;
+  }
+  .tl-actions button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tl-empty { color: var(--ink-3); font-size: 13.5px; line-height: 1.7; }
+  .tl-empty button {
+    display: inline-block; margin-top: 8px; font: inherit; font-size: 13px;
+    background: var(--accent); color: #fff; border: none; border-radius: 6px;
+    padding: 7px 13px; cursor: pointer;
+  }
+  .cell.selected { box-shadow: inset 0 0 0 2px var(--accent); }
 </style>
 </head>
 <body>
@@ -200,10 +244,15 @@
     <span id="panelMsg"></span>
   </div>
 
-  <div id="weekhead">
-    <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+  <div id="layout">
+    <section id="cal">
+      <div id="weekhead">
+        <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+      </div>
+      <div id="grid"></div>
+    </section>
+    <aside id="timeline"></aside>
   </div>
-  <div id="grid"></div>
   <script src="app.js"></script>
 </body>
 </html>
