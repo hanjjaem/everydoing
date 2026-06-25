@@ -90,15 +90,24 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(scan_paths, list):
             self._send_json(400, {"error": "scan_paths(list) 필요"})
             return
+        if not scan_paths:
+            self._send_json(400, {"error": "스캔 폴더를 최소 1개 지정하세요"})
+            return
         extensions = data.get("extensions")
         if extensions is not None and not isinstance(extensions, list):
             self._send_json(400, {"error": "extensions(list) 필요"})
             return
+        norm_exts = None
+        if extensions is not None:
+            norm_exts = ec.normalize_extensions(extensions)
+            if not norm_exts:
+                self._send_json(400, {"error": "파일 유형을 최소 1개 선택하세요"})
+                return
         try:
             cfg = ec.load_config()
             cfg["scan_paths"] = scan_paths
-            if extensions is not None:
-                cfg["extensions"] = ec.normalize_extensions(extensions)
+            if norm_exts is not None:
+                cfg["extensions"] = norm_exts
             ec.save_config(cfg)
             CONFIG = cfg
         except OSError as e:

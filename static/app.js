@@ -161,7 +161,12 @@ async function savePaths() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scan_paths: editPaths, extensions: editExts }),
   });
-  if (!res.ok) { document.getElementById("panelMsg").textContent = "저장 실패"; return; }
+  if (!res.ok) {
+    let msg = "저장 실패";
+    try { msg = (await res.json()).error || msg; } catch (_) {}
+    document.getElementById("panelMsg").textContent = msg;
+    return;
+  }
   document.getElementById("panel").style.display = "none";
   load();
 }
