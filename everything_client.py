@@ -152,3 +152,50 @@ def normalize_extensions(raws: "list") -> "list[str]":
         if e and e not in out:
             out.append(e)
     return out
+
+
+def set_memo(memos: dict, date: str, text: str) -> dict:
+    """날짜별 메모를 갱신한 새 dict 반환. 빈 텍스트면 키 삭제. 원본 불변.
+
+    Args:
+        memos: existing memos dict.
+        date: date key (YYYY-MM-DD format).
+        text: memo text to set (empty or whitespace = delete).
+
+    Returns:
+        new dict with memo added, updated, or removed (original unchanged).
+    """
+    out = dict(memos)
+    stripped = (text or "").strip()
+    if stripped:
+        out[date] = stripped
+    else:
+        out.pop(date, None)
+    return out
+
+
+def load_memos(path: str = "memos.json") -> dict:
+    """Load memos from JSON file. Returns empty dict if file not found.
+
+    Args:
+        path: file path to load from (default: memos.json).
+
+    Returns:
+        dict of date -> memo text, or empty dict if file not found.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_memos(memos: dict, path: str = "memos.json") -> None:
+    """Save memos dict to JSON file with UTF-8 encoding and indentation.
+
+    Args:
+        memos: memos dict to save.
+        path: file path to write to (default: memos.json).
+    """
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(memos, f, ensure_ascii=False, indent=2)

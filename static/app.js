@@ -1,11 +1,91 @@
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  try { localStorage.setItem("theme", theme); } catch (_) {}
+  const btn = document.getElementById("themeToggle");
+  if (btn) btn.textContent = theme === "dark" ? "☀" : "☾";
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  applyTheme(cur === "dark" ? "light" : "dark");
+}
+
+(function restoreTheme() {
+  let saved = "light";
+  try { saved = localStorage.getItem("theme") || "light"; } catch (_) {}
+  document.documentElement.setAttribute("data-theme", saved);
+})();
+
 let data = {};
 let cur = new Date();
 let query = "";
+let selectedDate = null;
+let memos = {};
 
 function filterFiles(files, q) {
   const norm = (q || "").trim().toLowerCase();
   if (!norm) return files;
   return files.filter(f => (f.name || "").toLowerCase().includes(norm));
+}
+
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+function amtLevel(n) {
+  if (n <= 2) return 1;
+  if (n <= 7) return 2;
+  return 3;
+}
+
+const EXT_TYPE = {
+  hwp:  { color: "#1E6FE8", label: "한" },
+  hwpx: { color: "#1E6FE8", label: "한" },
+  doc:  { color: "#2B579A", label: "W" },
+  docx: { color: "#2B579A", label: "W" },
+  xls:  { color: "#217346", label: "X" },
+  xlsx: { color: "#217346", label: "X" },
+  ppt:  { color: "#C43E1C", label: "P" },
+  pptx: { color: "#C43E1C", label: "P" },
+  pdf:  { color: "#E5252A", label: "F" },
+};
+
+function extOf(name) {
+  const i = (name || "").lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+function chipFor(ext) {
+  return EXT_TYPE[ext] || { color: "#9b958a", label: (ext[0] || "?").toUpperCase() };
+}
+
+function typeChips(files, cap = 4) {
+  const seen = [], out = [];
+  for (const f of files) {
+    const ext = extOf(f.name);
+    const chip = chipFor(ext);
+    const key = EXT_TYPE[ext] ? chip.label : ext;
+    if (!seen.includes(key)) { seen.push(key); out.push(chip); }
+  }
+  return { chips: out.slice(0, cap), plus: out.length > cap };
+}
+
+function formatDayLabel(dateStr, today) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const that = new Date(y, m - 1, d);
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffDays = Math.round((base - that) / 86400000);
+  const md = (m) + "월 " + (d) + "일";
+  if (diffDays === 0) return "오늘 · " + md;
+  if (diffDays === 1) return "어제 · " + md;
+  return md + " · " + WEEKDAYS[that.getDay()];
+}
+
+function buildGroups(data, y, m, q) {
+  const prefix = y + "-" + String(m + 1).padStart(2, "0") + "-";
+  return Object.keys(data)
+    .filter(k => k.startsWith(prefix))
+    .sort((a, b) => (a < b ? 1 : -1))
+    .map(date => ({ date, files: filterFiles(data[date], q) }))
+    .filter(g => g.files.length > 0);
 }
 
 async function load() {
@@ -26,7 +106,11 @@ async function load() {
     msg.textContent = "서버 응답을 받을 수 없습니다: " + e;
     data = {};
   }
-  render();
+  try {
+    const r = await fetch("/api/memos");
+    memos = r.ok ? await r.json() : {};
+  } catch (_) { memos = {}; }
+  renderAll();
 }
 
 function key(y, m, d) {
@@ -35,50 +119,197 @@ function key(y, m, d) {
 
 function render() {
   const y = cur.getFullYear(), m = cur.getMonth();
-  document.getElementById("label").textContent = y + "년 " + (m + 1) + "월";
+  document.getElementById("yearLabel").textContent = y;
+  document.getElementById("label").textContent = (m + 1) + "월";
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
   const first = new Date(y, m, 1).getDay();
   const days = new Date(y, m + 1, 0).getDate();
   const today = new Date();
-  for (let i = 0; i < first; i++) grid.appendChild(document.createElement("div"));
+  let activeDays = 0, totalFiles = 0;
+  for (let i = 0; i < first; i++) {
+    const pad = document.createElement("div");
+    pad.className = "cell";
+    grid.appendChild(pad);
+  }
   for (let d = 1; d <= days; d++) {
     const cell = document.createElement("div");
     cell.className = "cell";
     if (y === today.getFullYear() && m === today.getMonth() && d === today.getDate())
       cell.classList.add("today");
+    const cellKey = key(y, m, d);
+    if (cellKey === selectedDate) cell.classList.add("selected");
     const num = document.createElement("div");
     num.className = "daynum";
     num.textContent = d;
     cell.appendChild(num);
-    const files = filterFiles(data[key(y, m, d)] || [], query);
+    const files = filterFiles(data[cellKey] || [], query);
     if (files.length) {
-      const badge = document.createElement("span");
-      badge.className = "badge";
-      badge.textContent = files.length + "개";
-      const box = document.createElement("div");
-      box.className = "files";
-      box.style.display = "none";
-      badge.onclick = () => { box.style.display = box.style.display === "none" ? "block" : "none"; };
-      files.forEach(f => {
-        const a = document.createElement("span");
-        a.className = "file";
-        a.textContent = f.name;
-        a.onclick = () => menu(f);
-        box.appendChild(a);
+      activeDays++; totalFiles += files.length;
+      cell.classList.add("has-files");
+      const count = document.createElement("span");
+      count.className = "count";
+      count.dataset.amt = amtLevel(files.length);
+      count.textContent = files.length;
+      count.onclick = (e) => {
+        e.stopPropagation();
+        const ae = document.activeElement;
+        if (ae && ae.classList.contains("memo-edit")) ae.blur();
+        selectDate(cellKey);
+      };
+      cell.appendChild(count);
+
+      const { chips, plus } = typeChips(files);
+      const typeWrap = document.createElement("span");
+      typeWrap.className = "types";
+      chips.forEach(c => {
+        const chip = document.createElement("span");
+        chip.className = "type-chip";
+        chip.style.background = c.color;
+        chip.textContent = c.label;
+        typeWrap.appendChild(chip);
       });
-      cell.appendChild(badge);
-      cell.appendChild(box);
+      if (plus) {
+        const more = document.createElement("span");
+        more.className = "more";
+        more.textContent = "+";
+        typeWrap.appendChild(more);
+      }
+      cell.appendChild(typeWrap);
     }
+    attachMemo(cell, cellKey);
     grid.appendChild(cell);
+  }
+  const summary = document.getElementById("summary");
+  summary.innerHTML = activeDays
+    ? '<b>' + activeDays + '</b>일 기록 · <b>' + totalFiles + '</b>개 문서'
+    : '이 달의 기록 없음';
+}
+
+function attachMemo(cell, cellKey) {
+  const memo = document.createElement("div");
+  const text = memos[cellKey] || "";
+  memo.className = text ? "memo" : "memo empty";
+  memo.textContent = text || "메모 추가";
+  memo.onclick = (e) => { e.stopPropagation(); startMemoEdit(cell, cellKey); };
+  cell.appendChild(memo);
+}
+
+function startMemoEdit(cell, cellKey) {
+  const existing = cell.querySelector(".memo");
+  const ta = document.createElement("textarea");
+  ta.className = "memo-edit";
+  ta.value = memos[cellKey] || "";
+  ta.rows = 2;
+  if (existing) existing.replaceWith(ta); else cell.appendChild(ta);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  const finish = (save) => {
+    ta.onblur = null;
+    if (save) saveMemo(cellKey, ta.value);
+    else render();
+  };
+  ta.onblur = () => finish(true);
+  ta.onkeydown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+    else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  };
+}
+
+async function saveMemo(cellKey, text) {
+  const trimmed = text.trim();
+  if (trimmed) memos[cellKey] = trimmed; else delete memos[cellKey];
+  render();
+  try {
+    await fetch("/api/memos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: cellKey, text: trimmed }),
+    });
+  } catch (_) {}
+}
+
+function renderAll() {
+  render();
+  renderTimeline();
+}
+
+function actionBtn(label, handler) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.onclick = handler;
+  return b;
+}
+
+function renderTimeline() {
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const tl = document.getElementById("timeline");
+  tl.innerHTML = "";
+  const groups = buildGroups(data, y, m, query);
+  if (!groups.length) {
+    const empty = document.createElement("div");
+    empty.className = "tl-empty";
+    empty.innerHTML = query
+      ? "검색 결과가 없어요."
+      : "아직 기록이 없어요.<br>설정에서 작업 폴더를 추가해 보세요.";
+    if (!query) {
+      const b = document.createElement("button");
+      b.textContent = "설정 열기";
+      b.onclick = openPanel;
+      empty.appendChild(document.createElement("br"));
+      empty.appendChild(b);
+    }
+    tl.appendChild(empty);
+    return;
+  }
+  const today = new Date();
+  groups.forEach(g => {
+    const grp = document.createElement("div");
+    grp.className = "tl-group";
+    grp.dataset.date = g.date;
+    const h = document.createElement("div");
+    h.className = "tl-date";
+    h.textContent = formatDayLabel(g.date, today);
+    grp.appendChild(h);
+    g.files.forEach(f => {
+      const row = document.createElement("div");
+      row.className = "tl-file";
+      const name = document.createElement("span");
+      name.className = "tl-name";
+      name.textContent = f.name;
+      row.appendChild(name);
+      const acts = document.createElement("span");
+      acts.className = "tl-actions";
+      acts.appendChild(actionBtn("열기", e => { e.stopPropagation(); openFile(f.path, "file"); }));
+      acts.appendChild(actionBtn("폴더", e => { e.stopPropagation(); openFile(f.path, "folder"); }));
+      acts.appendChild(actionBtn("경로", e => { e.stopPropagation(); navigator.clipboard.writeText(f.path); }));
+      row.appendChild(acts);
+      row.onclick = () => openFile(f.path, "file");
+      grp.appendChild(row);
+    });
+    tl.appendChild(grp);
+  });
+}
+
+function selectDate(dateStr) {
+  selectedDate = (selectedDate === dateStr) ? null : dateStr;
+  render();
+  if (selectedDate) {
+    document.body.setAttribute("data-timeline", "open");
+    const grp = document.querySelector('#timeline .tl-group[data-date="' + selectedDate + '"]');
+    if (grp) {
+      grp.scrollIntoView({ behavior: "smooth", block: "start" });
+      grp.classList.add("flash");
+      setTimeout(() => grp.classList.remove("flash"), 700);
+    }
+  } else {
+    closeTimeline();
   }
 }
 
-function menu(f) {
-  const choice = prompt(f.name + "\n1: 파일 열기  2: 폴더 열기  3: 경로 복사\n번호 입력:", "1");
-  if (choice === "1") openFile(f.path, "file");
-  else if (choice === "2") openFile(f.path, "folder");
-  else if (choice === "3") navigator.clipboard.writeText(f.path);
+function closeTimeline() {
+  document.body.removeAttribute("data-timeline");
+  if (selectedDate) { selectedDate = null; render(); }
 }
 
 async function openFile(path, mode) {
@@ -94,10 +325,15 @@ async function openFile(path, mode) {
   }
 }
 
-document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); render(); };
-document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
-document.getElementById("refresh").onclick = load;
-document.getElementById("search").oninput = (e) => { query = e.target.value; render(); };
+document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); selectedDate = null; renderAll(); };
+document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; renderAll(); };
+window.addEventListener("focus", load);
+document.getElementById("search").oninput = (e) => { query = e.target.value; renderAll(); };
+document.getElementById("label").style.cursor = "pointer";
+document.getElementById("label").title = "오늘로";
+document.getElementById("label").onclick = () => { cur = new Date(); selectedDate = null; renderAll(); };
+document.getElementById("themeToggle").onclick = toggleTheme;
+applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
 
 let editPaths = [];
 let editExts = [];
@@ -153,7 +389,11 @@ async function openPanel() {
   editExts = (cfg.extensions || []).slice();
   renderExts();
   renderPaths();
-  document.getElementById("panel").style.display = "block";
+  document.body.setAttribute("data-settings", "open");
+}
+
+function closePanel() {
+  document.body.removeAttribute("data-settings");
 }
 
 async function addPath() {
@@ -175,7 +415,7 @@ async function savePaths() {
     document.getElementById("panelMsg").textContent = msg;
     return;
   }
-  document.getElementById("panel").style.display = "none";
+  closePanel();
   load();
 }
 
@@ -183,5 +423,7 @@ document.getElementById("settings").onclick = openPanel;
 document.getElementById("addPath").onclick = addPath;
 document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
-document.getElementById("closePanel").onclick = () => { document.getElementById("panel").style.display = "none"; };
+document.getElementById("closePanel").onclick = closePanel;
+document.getElementById("scrim").onclick = () => { closePanel(); closeTimeline(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePanel(); closeTimeline(); } });
 load();
