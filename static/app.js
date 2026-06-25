@@ -53,13 +53,19 @@ function key(y, m, d) {
 
 function render() {
   const y = cur.getFullYear(), m = cur.getMonth();
-  document.getElementById("label").textContent = y + "년 " + (m + 1) + "월";
+  document.getElementById("yearLabel").textContent = y;
+  document.getElementById("label").textContent = (m + 1) + "월";
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
   const first = new Date(y, m, 1).getDay();
   const days = new Date(y, m + 1, 0).getDate();
   const today = new Date();
-  for (let i = 0; i < first; i++) grid.appendChild(document.createElement("div"));
+  let activeDays = 0, totalFiles = 0;
+  for (let i = 0; i < first; i++) {
+    const pad = document.createElement("div");
+    pad.className = "cell";
+    grid.appendChild(pad);
+  }
   for (let d = 1; d <= days; d++) {
     const cell = document.createElement("div");
     cell.className = "cell";
@@ -71,9 +77,12 @@ function render() {
     cell.appendChild(num);
     const files = filterFiles(data[key(y, m, d)] || [], query);
     if (files.length) {
+      activeDays++; totalFiles += files.length;
+      cell.classList.add("has-files");
       const badge = document.createElement("span");
       badge.className = "badge";
-      badge.textContent = files.length + "개";
+      badge.innerHTML = '<span class="n"></span><span class="u">개</span>';
+      badge.querySelector(".n").textContent = files.length;
       const box = document.createElement("div");
       box.className = "files";
       box.style.display = "none";
@@ -90,6 +99,10 @@ function render() {
     }
     grid.appendChild(cell);
   }
+  const summary = document.getElementById("summary");
+  summary.innerHTML = activeDays
+    ? '<b>' + activeDays + '</b>일 기록 · <b>' + totalFiles + '</b>개 문서'
+    : '이 달의 기록 없음';
 }
 
 function menu(f) {

@@ -2,129 +2,189 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>업무정리캘린더</title>
+<title>업무 일지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <style>
   :root {
-    --accent: #0066cc;
-    --accent-hover: #1a78d6;
-    --bg: #ffffff;
-    --surface: #f5f5f7;
-    --surface-2: #ffffff;
-    --border: #d2d2d7;
-    --text: #1d1d1f;
-    --text-dim: #6e6e73;
-    --on-accent: #ffffff;
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 16px;
-    --space-4: 24px;
-    --radius-sm: 8px;
-    --radius-pill: 9999px;
-    --shadow: 0 4px 16px rgba(0,0,0,0.08);
+    --paper: #f6f3ec;
+    --card: #fffdf7;
+    --card-empty: #f3efe6;
+    --line: #e4ded1;
+    --line-2: #d8d1c0;
+    --ink: #24221d;
+    --ink-2: #6f6a5d;
+    --ink-3: #a8a290;
+    --accent: #8a2b22;       /* 버건디 단일 강조 */
+    --accent-soft: #8a2b2216;
+    --accent-line: #8a2b2240;
+    --hover: #ece7da;
+    --serif: "Noto Serif KR", Georgia, serif;
+    --sans: "Pretendard", -apple-system, "Malgun Gothic", sans-serif;
   }
   :root[data-theme="dark"] {
-    --accent: #2997ff;
-    --accent-hover: #4aa8ff;
-    --bg: #1d1d1f;
-    --surface: #2c2c2e;
-    --surface-2: #242426;
-    --border: #3a3a3c;
-    --text: #f5f5f7;
-    --text-dim: #a1a1a6;
-    --on-accent: #ffffff;
+    --paper: #19181500;
+    --paper: #181713;
+    --card: #211f1a;
+    --card-empty: #1c1b16;
+    --line: #322f27;
+    --line-2: #3d3930;
+    --ink: #ece6d8;
+    --ink-2: #a59f8e;
+    --ink-3: #6c665a;
+    --accent: #d98a7e;
+    --accent-soft: #d98a7e1f;
+    --accent-line: #d98a7e44;
+    --hover: #262420;
   }
 
+  * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
-    margin: var(--space-4);
-    background: var(--bg);
-    color: var(--text);
+    font-family: var(--sans);
+    margin: 0; padding: clamp(28px, 5vw, 64px) clamp(24px, 6vw, 88px) 64px;
+    background: var(--paper); color: var(--ink);
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
   }
+
+  /* ── 마스트헤드 ───────────────────────── */
   header {
-    display: flex; align-items: center; gap: var(--space-2);
-    margin-bottom: var(--space-3);
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 18px; margin-bottom: 28px;
   }
-  #label { font-size: 18px; letter-spacing: -0.02em; }
+  .masthead { display: flex; flex-direction: column; gap: 2px; }
+  .year {
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    letter-spacing: .28em; color: var(--accent); text-transform: uppercase;
+  }
+  .month {
+    font-family: var(--serif); font-weight: 700;
+    font-size: clamp(2.6rem, 6vw, 4.2rem); line-height: .95;
+    letter-spacing: -.01em; margin: 2px 0 0;
+  }
+  .summary { font-size: 13.5px; color: var(--ink-2); margin-top: 8px; }
+  .summary b { color: var(--ink); font-weight: 600; }
 
-  button {
-    font-family: inherit;
-    background: var(--accent);
-    color: var(--on-accent);
-    border: none;
-    border-radius: var(--radius-pill);
-    padding: 6px 14px;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.05s;
+  .controls { display: flex; align-items: center; gap: 4px; padding-bottom: 4px; }
+  .controls button {
+    font: inherit; font-size: 13px; background: transparent; color: var(--ink-2);
+    border: none; border-radius: 8px; padding: 7px 10px; cursor: pointer;
+    transition: background .12s, color .12s;
   }
-  button:hover { background: var(--accent-hover); }
-  button:active { transform: scale(0.98); }
+  .controls button:hover { background: var(--hover); color: var(--ink); }
+  #prev, #next { font-size: 15px; padding: 7px 8px; color: var(--ink); }
+  #search {
+    font: inherit; font-size: 13px; background: var(--card); color: var(--ink);
+    border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 11px;
+    width: 150px; outline: none; transition: border-color .12s;
+  }
+  #search::placeholder { color: var(--ink-3); }
+  #search:focus { border-color: var(--accent); }
+  .sep { width: 1px; height: 20px; background: var(--line-2); margin: 0 4px; }
 
-  input {
-    font-family: inherit;
-    background: var(--surface-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    outline: none;
-    transition: box-shadow 0.15s, border-color 0.15s;
-  }
-  input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
-  }
+  #msg { color: var(--accent); font-size: 13px; margin-bottom: 14px; }
 
+  /* ── 달력 ───────────────────────── */
   #weekhead {
-    display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-1);
-    font-weight: 600; color: var(--text-dim); margin-bottom: var(--space-1);
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    font-size: 11px; font-weight: 600; color: var(--ink-3);
+    letter-spacing: .12em; padding: 0 2px 10px; text-transform: uppercase;
   }
-  #grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-1); }
+  #weekhead > div:first-child { color: var(--accent); }
+
+  #grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+  }
   .cell {
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    border-radius: var(--radius-sm);
-    min-height: 76px; padding: var(--space-1); font-size: 12px;
+    background: var(--card-empty);
+    min-height: 104px; padding: 9px 10px;
+    display: flex; flex-direction: column; gap: 7px;
+    position: relative;
   }
-  .cell.today { outline: 2px solid var(--accent); outline-offset: -1px; }
-  .daynum { color: var(--text-dim); margin-bottom: 2px; }
+  .cell.has-files { background: var(--card); }
 
+  .daynum {
+    font-family: var(--serif); font-size: 15px; font-weight: 500;
+    color: var(--ink-3); line-height: 1;
+  }
+  .has-files .daynum { color: var(--ink); }
+
+  .cell.today .daynum {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 600;
+    margin: -3px 0 0 -3px;
+  }
+
+  /* 개수 배지 */
   .badge {
-    display: inline-block;
-    background: var(--accent); color: var(--on-accent);
-    border-radius: var(--radius-pill);
-    padding: 1px 8px; font-size: 11px; cursor: pointer;
+    display: inline-flex; align-items: baseline; gap: 4px; align-self: flex-start;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--accent-line); border-radius: 6px;
+    padding: 3px 9px; cursor: pointer; transition: background .12s;
   }
-  .files { margin-top: var(--space-1); }
+  .badge:hover { background: var(--accent-line); }
+  .badge .n { font-family: var(--serif); font-weight: 700; font-size: 14px; }
+  .badge .u { font-size: 10.5px; font-weight: 500; opacity: .85; }
+
+  .files { display: flex; flex-direction: column; gap: 3px; }
   .file {
-    cursor: pointer; color: var(--accent); display: block;
-    padding: 1px 0;
+    font-size: 12px; color: var(--ink-2); cursor: pointer; line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    border-left: 2px solid var(--line-2); padding-left: 7px;
   }
-  .file:hover { text-decoration: underline; }
+  .file:hover { color: var(--accent); border-left-color: var(--accent); }
 
-  #msg { color: #ff453a; }
-
+  /* ── 설정 패널 ───────────────────────── */
   #panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow);
-    padding: var(--space-3); margin: var(--space-2) 0; max-width: 600px;
+    background: var(--card); border: 1px solid var(--line-2);
+    border-radius: 8px; padding: 20px 22px; margin: 14px 0; max-width: 580px;
   }
-  #panel hr { border: none; border-top: 1px solid var(--border); margin: var(--space-3) 0; }
-  #pathlist { list-style: none; padding: 0; }
+  #panel strong { font-family: var(--serif); font-size: 15px; }
+  #panel hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+  #pathlist { list-style: none; padding: 0; margin: 8px 0; }
+  #pathlist li { font-size: 13px; color: var(--ink-2); padding: 3px 0; }
+  #panel input {
+    font: inherit; font-size: 13px; background: var(--paper); color: var(--ink);
+    border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 9px; outline: none;
+  }
+  #panel button {
+    font: inherit; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--line-2); background: var(--card); color: var(--ink);
+    border-radius: 6px; padding: 6px 12px; margin: 2px 4px 2px 0; transition: background .12s;
+  }
+  #panel button:hover { background: var(--hover); }
+  #panel #savePaths { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #extlist { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 10px; }
+  #extlist label { font-size: 13px; color: var(--ink-2); }
+  #panelMsg { font-size: 12px; color: var(--accent); }
 </style>
 </head>
 <body>
   <header>
-    <button id="prev">◀</button>
-    <strong id="label"></strong>
-    <button id="next">▶</button>
-    <button id="refresh">새로고침</button>
-    <button id="settings">폴더 설정</button>
-    <input id="search" type="text" placeholder="파일명 검색">
-    <button id="themeToggle" title="라이트/다크 전환">☾</button>
+    <div class="masthead">
+      <div class="year" id="yearLabel"></div>
+      <h1 class="month" id="label"></h1>
+      <div class="summary" id="summary"></div>
+    </div>
+    <div class="controls">
+      <button id="prev" title="이전 달">←</button>
+      <button id="next" title="다음 달">→</button>
+      <span class="sep"></span>
+      <input id="search" type="text" placeholder="파일명 검색">
+      <button id="refresh" title="새로고침">새로고침</button>
+      <button id="settings" title="폴더·파일유형 설정">설정</button>
+      <button id="themeToggle" title="라이트/다크 전환">☾</button>
+    </div>
   </header>
+
   <div id="msg"></div>
+
   <div id="panel" style="display:none;">
     <strong>스캔 폴더</strong>
     <ul id="pathlist"></ul>
@@ -134,10 +194,12 @@
     <div id="extlist"></div>
     <input id="extInput" type="text" placeholder="확장자 (예: csv)" size="12">
     <button id="addExt">추가</button>
+    <hr>
     <button id="savePaths">저장</button>
     <button id="closePanel">닫기</button>
-    <span id="panelMsg" style="color:#ff453a;"></span>
+    <span id="panelMsg"></span>
   </div>
+
   <div id="weekhead">
     <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
   </div>
