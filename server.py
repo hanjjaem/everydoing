@@ -30,7 +30,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(503, {"error": str(e)})
             return
         if path == "/api/config":
-            self._send_json(200, {"scan_paths": CONFIG.get("scan_paths", [])})
+            self._send_json(200, {
+                "scan_paths": CONFIG.get("scan_paths", []),
+                "extensions": CONFIG.get("extensions", []),
+            })
             return
         self._serve_static(path)
 
@@ -87,9 +90,15 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(scan_paths, list):
             self._send_json(400, {"error": "scan_paths(list) 필요"})
             return
+        extensions = data.get("extensions")
+        if extensions is not None and not isinstance(extensions, list):
+            self._send_json(400, {"error": "extensions(list) 필요"})
+            return
         try:
             cfg = ec.load_config()
             cfg["scan_paths"] = scan_paths
+            if extensions is not None:
+                cfg["extensions"] = ec.normalize_extensions(extensions)
             ec.save_config(cfg)
             CONFIG = cfg
         except OSError as e:
