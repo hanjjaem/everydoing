@@ -19,11 +19,34 @@ function toggleTheme() {
 let data = {};
 let cur = new Date();
 let query = "";
+let selectedDate = null;
 
 function filterFiles(files, q) {
   const norm = (q || "").trim().toLowerCase();
   if (!norm) return files;
   return files.filter(f => (f.name || "").toLowerCase().includes(norm));
+}
+
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+function formatDayLabel(dateStr, today) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const that = new Date(y, m - 1, d);
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffDays = Math.round((base - that) / 86400000);
+  const md = (m) + "월 " + (d) + "일";
+  if (diffDays === 0) return "오늘 · " + md;
+  if (diffDays === 1) return "어제 · " + md;
+  return md + " · " + WEEKDAYS[that.getDay()];
+}
+
+function buildGroups(data, y, m, q) {
+  const prefix = y + "-" + String(m + 1).padStart(2, "0") + "-";
+  return Object.keys(data)
+    .filter(k => k.startsWith(prefix))
+    .sort((a, b) => (a < b ? 1 : -1))
+    .map(date => ({ date, files: filterFiles(data[date], q) }))
+    .filter(g => g.files.length > 0);
 }
 
 async function load() {
