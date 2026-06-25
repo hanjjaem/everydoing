@@ -92,6 +92,36 @@ document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear
 document.getElementById("refresh").onclick = load;
 
 let editPaths = [];
+let editExts = [];
+const PRESET_EXTS = ["hwp", "hwpx", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pdf"];
+
+function renderExts() {
+  const box = document.getElementById("extlist");
+  box.innerHTML = "";
+  const all = PRESET_EXTS.slice();
+  editExts.forEach(e => { if (!all.includes(e)) all.push(e); });
+  all.forEach(ext => {
+    const label = document.createElement("label");
+    label.style.marginRight = "10px";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = editExts.includes(ext);
+    cb.onchange = () => {
+      if (cb.checked) { if (!editExts.includes(ext)) editExts.push(ext); }
+      else { editExts = editExts.filter(x => x !== ext); }
+    };
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(" " + ext));
+    box.appendChild(label);
+  });
+}
+
+function addExt() {
+  const input = document.getElementById("extInput");
+  let v = input.value.trim().replace(/^\./, "").toLowerCase();
+  if (v && !editExts.includes(v)) { editExts.push(v); renderExts(); }
+  input.value = "";
+}
 
 function renderPaths() {
   const ul = document.getElementById("pathlist");
@@ -112,6 +142,8 @@ async function openPanel() {
   const res = await fetch("/api/config");
   const cfg = await res.json();
   editPaths = (cfg.scan_paths || []).slice();
+  editExts = (cfg.extensions || []).slice();
+  renderExts();
   renderPaths();
   document.getElementById("panel").style.display = "block";
 }
@@ -127,7 +159,7 @@ async function savePaths() {
   const res = await fetch("/api/config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ scan_paths: editPaths }),
+    body: JSON.stringify({ scan_paths: editPaths, extensions: editExts }),
   });
   if (!res.ok) { document.getElementById("panelMsg").textContent = "저장 실패"; return; }
   document.getElementById("panel").style.display = "none";
@@ -136,6 +168,7 @@ async function savePaths() {
 
 document.getElementById("settings").onclick = openPanel;
 document.getElementById("addPath").onclick = addPath;
+document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
 document.getElementById("closePanel").onclick = () => { document.getElementById("panel").style.display = "none"; };
 load();
