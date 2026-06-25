@@ -1,5 +1,12 @@
 let data = {};
 let cur = new Date();
+let query = "";
+
+function filterFiles(files, q) {
+  const norm = (q || "").trim().toLowerCase();
+  if (!norm) return files;
+  return files.filter(f => (f.name || "").toLowerCase().includes(norm));
+}
 
 async function load() {
   const msg = document.getElementById("msg");
@@ -44,7 +51,7 @@ function render() {
     num.className = "daynum";
     num.textContent = d;
     cell.appendChild(num);
-    const files = data[key(y, m, d)] || [];
+    const files = filterFiles(data[key(y, m, d)] || [], query);
     if (files.length) {
       const badge = document.createElement("span");
       badge.className = "badge";
@@ -90,6 +97,7 @@ async function openFile(path, mode) {
 document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); render(); };
 document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
 document.getElementById("refresh").onclick = load;
+document.getElementById("search").oninput = (e) => { query = e.target.value; render(); };
 
 let editPaths = [];
 let editExts = [];
