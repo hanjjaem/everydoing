@@ -132,13 +132,18 @@
   .count[data-amt="2"] { font-size: 14px; color: var(--ink); }
   .count[data-amt="3"] { font-size: 16px; color: var(--accent); font-weight: 700; }
 
-  /* 밀도 점 — 문서 1개당 점 1개, 상한 표시 */
-  .dots {
-    position: absolute; top: 30px; right: 10px;
+  /* 확장자 종류 칩 — 그 날 등장한 종류별 1개 (브랜드색 + 약어) */
+  .types {
+    position: absolute; top: 28px; right: 10px;
     display: flex; gap: 3px; align-items: center;
-    color: var(--ink-3); font-size: 10px; line-height: 1;
   }
-  .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--ink-3); }
+  .type-chip {
+    width: 16px; height: 16px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--sans); font-size: 9px; font-weight: 700; line-height: 1;
+    color: #fff;
+  }
+  .types .more { font-size: 10px; color: var(--ink-3); margin-left: 1px; }
 
   /* 본문 한 줄 메모 */
   .memo {

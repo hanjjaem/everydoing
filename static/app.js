@@ -36,8 +36,36 @@ function amtLevel(n) {
   return 3;
 }
 
-function dotCount(n, cap = 5) {
-  return { dots: Math.min(n, cap), plus: n > cap };
+const EXT_TYPE = {
+  hwp:  { color: "#1E6FE8", label: "한" },
+  hwpx: { color: "#1E6FE8", label: "한" },
+  doc:  { color: "#2B579A", label: "W" },
+  docx: { color: "#2B579A", label: "W" },
+  xls:  { color: "#217346", label: "X" },
+  xlsx: { color: "#217346", label: "X" },
+  ppt:  { color: "#C43E1C", label: "P" },
+  pptx: { color: "#C43E1C", label: "P" },
+  pdf:  { color: "#E5252A", label: "F" },
+};
+
+function extOf(name) {
+  const i = (name || "").lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+function chipFor(ext) {
+  return EXT_TYPE[ext] || { color: "#9b958a", label: (ext[0] || "?").toUpperCase() };
+}
+
+function typeChips(files, cap = 4) {
+  const seen = [], out = [];
+  for (const f of files) {
+    const ext = extOf(f.name);
+    const chip = chipFor(ext);
+    const key = EXT_TYPE[ext] ? chip.label : ext;
+    if (!seen.includes(key)) { seen.push(key); out.push(chip); }
+  }
+  return { chips: out.slice(0, cap), plus: out.length > cap };
 }
 
 function formatDayLabel(dateStr, today) {
@@ -131,16 +159,23 @@ function render() {
       };
       cell.appendChild(count);
 
-      const { dots, plus } = dotCount(files.length);
-      const dotWrap = document.createElement("span");
-      dotWrap.className = "dots";
-      for (let i = 0; i < dots; i++) {
-        const dot = document.createElement("span");
-        dot.className = "dot";
-        dotWrap.appendChild(dot);
+      const { chips, plus } = typeChips(files);
+      const typeWrap = document.createElement("span");
+      typeWrap.className = "types";
+      chips.forEach(c => {
+        const chip = document.createElement("span");
+        chip.className = "type-chip";
+        chip.style.background = c.color;
+        chip.textContent = c.label;
+        typeWrap.appendChild(chip);
+      });
+      if (plus) {
+        const more = document.createElement("span");
+        more.className = "more";
+        more.textContent = "+";
+        typeWrap.appendChild(more);
       }
-      if (plus) dotWrap.appendChild(document.createTextNode("+"));
-      cell.appendChild(dotWrap);
+      cell.appendChild(typeWrap);
     }
     attachMemo(cell, cellKey);
     grid.appendChild(cell);
