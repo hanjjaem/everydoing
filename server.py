@@ -35,6 +35,9 @@ class Handler(BaseHTTPRequestHandler):
                 "extensions": CONFIG.get("extensions", []),
             })
             return
+        if path == "/api/memos":
+            self._send_json(200, ec.load_memos())
+            return
         self._serve_static(path)
 
     def _serve_static(self, path):
@@ -56,7 +59,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         route = urlparse(self.path).path
-        if route not in ("/api/open", "/api/config", "/api/pick-folder"):
+        if route not in ("/api/open", "/api/config", "/api/pick-folder", "/api/memos"):
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", 0))
@@ -70,6 +73,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_open(data)
         elif route == "/api/config":
             self._handle_save_config(data)
+        elif route == "/api/memos":
+            self._handle_save_memo(data)
         else:
             self._handle_pick_folder()
 
@@ -129,6 +134,20 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": out.stderr.strip() or "folder picker failed"})
             return
         self._send_json(200, {"path": out.stdout.strip()})
+
+    def _handle_save_memo(self, data):
+        date = data.get("date")
+        if not isinstance(date, str) or not date:
+            self._send_json(400, {"error": "date 필요"})
+            return
+        text = data.get("text", "")
+        try:
+            memos = ec.set_memo(ec.load_memos(), date, text if isinstance(text, str) else "")
+            ec.save_memos(memos)
+        except OSError as e:
+            self._send_json(500, {"error": str(e)})
+            return
+        self._send_json(200, {"ok": True})
 
 
 if __name__ == "__main__":

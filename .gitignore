@@ -3,6 +3,7 @@
 *.db-shm
 *.db-wal
 *.log
+memos.json
 
 # 시크릿
 .env*
