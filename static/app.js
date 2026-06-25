@@ -67,7 +67,7 @@ async function load() {
     msg.textContent = "서버 응답을 받을 수 없습니다: " + e;
     data = {};
   }
-  render();
+  renderAll();
 }
 
 function key(y, m, d) {
@@ -94,11 +94,13 @@ function render() {
     cell.className = "cell";
     if (y === today.getFullYear() && m === today.getMonth() && d === today.getDate())
       cell.classList.add("today");
+    const cellKey = key(y, m, d);
+    if (cellKey === selectedDate) cell.classList.add("selected");
     const num = document.createElement("div");
     num.className = "daynum";
     num.textContent = d;
     cell.appendChild(num);
-    const files = filterFiles(data[key(y, m, d)] || [], query);
+    const files = filterFiles(data[cellKey] || [], query);
     if (files.length) {
       activeDays++; totalFiles += files.length;
       cell.classList.add("has-files");
@@ -106,19 +108,8 @@ function render() {
       badge.className = "badge";
       badge.innerHTML = '<span class="n"></span><span class="u">개</span>';
       badge.querySelector(".n").textContent = files.length;
-      const box = document.createElement("div");
-      box.className = "files";
-      box.style.display = "none";
-      badge.onclick = () => { box.style.display = box.style.display === "none" ? "block" : "none"; };
-      files.forEach(f => {
-        const a = document.createElement("span");
-        a.className = "file";
-        a.textContent = f.name;
-        a.onclick = () => menu(f);
-        box.appendChild(a);
-      });
+      badge.onclick = () => selectDate(cellKey);
       cell.appendChild(badge);
-      cell.appendChild(box);
     }
     grid.appendChild(cell);
   }
@@ -128,11 +119,79 @@ function render() {
     : '이 달의 기록 없음';
 }
 
-function menu(f) {
-  const choice = prompt(f.name + "\n1: 파일 열기  2: 폴더 열기  3: 경로 복사\n번호 입력:", "1");
-  if (choice === "1") openFile(f.path, "file");
-  else if (choice === "2") openFile(f.path, "folder");
-  else if (choice === "3") navigator.clipboard.writeText(f.path);
+function renderAll() {
+  render();
+  renderTimeline();
+}
+
+function actionBtn(label, handler) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.onclick = handler;
+  return b;
+}
+
+function renderTimeline() {
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const tl = document.getElementById("timeline");
+  tl.innerHTML = "";
+  const groups = buildGroups(data, y, m, query);
+  if (!groups.length) {
+    const empty = document.createElement("div");
+    empty.className = "tl-empty";
+    empty.innerHTML = query
+      ? "검색 결과가 없어요."
+      : "아직 기록이 없어요.<br>설정에서 작업 폴더를 추가해 보세요.";
+    if (!query) {
+      const b = document.createElement("button");
+      b.textContent = "설정 열기";
+      b.onclick = openPanel;
+      empty.appendChild(document.createElement("br"));
+      empty.appendChild(b);
+    }
+    tl.appendChild(empty);
+    return;
+  }
+  const today = new Date();
+  groups.forEach(g => {
+    const grp = document.createElement("div");
+    grp.className = "tl-group";
+    grp.dataset.date = g.date;
+    const h = document.createElement("div");
+    h.className = "tl-date";
+    h.textContent = formatDayLabel(g.date, today);
+    grp.appendChild(h);
+    g.files.forEach(f => {
+      const row = document.createElement("div");
+      row.className = "tl-file";
+      const name = document.createElement("span");
+      name.className = "tl-name";
+      name.textContent = f.name;
+      row.appendChild(name);
+      const acts = document.createElement("span");
+      acts.className = "tl-actions";
+      acts.appendChild(actionBtn("열기", e => { e.stopPropagation(); openFile(f.path, "file"); }));
+      acts.appendChild(actionBtn("폴더", e => { e.stopPropagation(); openFile(f.path, "folder"); }));
+      acts.appendChild(actionBtn("경로", e => { e.stopPropagation(); navigator.clipboard.writeText(f.path); }));
+      row.appendChild(acts);
+      row.onclick = () => openFile(f.path, "file");
+      grp.appendChild(row);
+    });
+    tl.appendChild(grp);
+  });
+}
+
+function selectDate(dateStr) {
+  selectedDate = (selectedDate === dateStr) ? null : dateStr;
+  render();
+  if (selectedDate) {
+    const grp = document.querySelector('#timeline .tl-group[data-date="' + selectedDate + '"]');
+    if (grp) {
+      grp.scrollIntoView({ behavior: "smooth", block: "start" });
+      grp.classList.add("flash");
+      setTimeout(() => grp.classList.remove("flash"), 700);
+    }
+  }
 }
 
 async function openFile(path, mode) {
@@ -148,10 +207,13 @@ async function openFile(path, mode) {
   }
 }
 
-document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); render(); };
-document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
+document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); selectedDate = null; renderAll(); };
+document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; renderAll(); };
 document.getElementById("refresh").onclick = load;
-document.getElementById("search").oninput = (e) => { query = e.target.value; render(); };
+document.getElementById("search").oninput = (e) => { query = e.target.value; renderAll(); };
+document.getElementById("label").style.cursor = "pointer";
+document.getElementById("label").title = "오늘로";
+document.getElementById("label").onclick = () => { cur = new Date(); selectedDate = null; renderAll(); };
 document.getElementById("themeToggle").onclick = toggleTheme;
 applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
 
