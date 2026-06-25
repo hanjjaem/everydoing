@@ -20,6 +20,7 @@ let data = {};
 let cur = new Date();
 let query = "";
 let selectedDate = null;
+let memos = {};
 
 function filterFiles(files, q) {
   const norm = (q || "").trim().toLowerCase();
@@ -28,6 +29,16 @@ function filterFiles(files, q) {
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+function amtLevel(n) {
+  if (n <= 2) return 1;
+  if (n <= 7) return 2;
+  return 3;
+}
+
+function dotCount(n, cap = 5) {
+  return { dots: Math.min(n, cap), plus: n > cap };
+}
 
 function formatDayLabel(dateStr, today) {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -67,6 +78,10 @@ async function load() {
     msg.textContent = "서버 응답을 받을 수 없습니다: " + e;
     data = {};
   }
+  try {
+    const r = await fetch("/api/memos");
+    memos = r.ok ? await r.json() : {};
+  } catch (_) { memos = {}; }
   renderAll();
 }
 
@@ -104,19 +119,74 @@ function render() {
     if (files.length) {
       activeDays++; totalFiles += files.length;
       cell.classList.add("has-files");
-      const badge = document.createElement("span");
-      badge.className = "badge";
-      badge.innerHTML = '<span class="n"></span><span class="u">개</span>';
-      badge.querySelector(".n").textContent = files.length;
-      badge.onclick = () => selectDate(cellKey);
-      cell.appendChild(badge);
+      const count = document.createElement("span");
+      count.className = "count";
+      count.dataset.amt = amtLevel(files.length);
+      count.textContent = files.length;
+      count.onclick = (e) => { e.stopPropagation(); selectDate(cellKey); };
+      cell.appendChild(count);
+
+      const { dots, plus } = dotCount(files.length);
+      const dotWrap = document.createElement("span");
+      dotWrap.className = "dots";
+      for (let i = 0; i < dots; i++) {
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        dotWrap.appendChild(dot);
+      }
+      if (plus) dotWrap.appendChild(document.createTextNode("+"));
+      cell.appendChild(dotWrap);
     }
+    attachMemo(cell, cellKey);
     grid.appendChild(cell);
   }
   const summary = document.getElementById("summary");
   summary.innerHTML = activeDays
     ? '<b>' + activeDays + '</b>일 기록 · <b>' + totalFiles + '</b>개 문서'
     : '이 달의 기록 없음';
+}
+
+function attachMemo(cell, cellKey) {
+  const memo = document.createElement("div");
+  const text = memos[cellKey] || "";
+  memo.className = text ? "memo" : "memo empty";
+  memo.textContent = text || "메모 추가";
+  memo.onclick = (e) => { e.stopPropagation(); startMemoEdit(cell, cellKey); };
+  cell.appendChild(memo);
+}
+
+function startMemoEdit(cell, cellKey) {
+  const existing = cell.querySelector(".memo");
+  const ta = document.createElement("textarea");
+  ta.className = "memo-edit";
+  ta.value = memos[cellKey] || "";
+  ta.rows = 2;
+  if (existing) existing.replaceWith(ta); else cell.appendChild(ta);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  const finish = (save) => {
+    ta.onblur = null;
+    if (save) saveMemo(cellKey, ta.value);
+    else renderAll();
+  };
+  ta.onblur = () => finish(true);
+  ta.onkeydown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+    else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  };
+}
+
+async function saveMemo(cellKey, text) {
+  const trimmed = text.trim();
+  if (trimmed) memos[cellKey] = trimmed; else delete memos[cellKey];
+  render();
+  try {
+    await fetch("/api/memos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: cellKey, text: trimmed }),
+    });
+  } catch (_) {}
 }
 
 function renderAll() {
@@ -185,13 +255,21 @@ function selectDate(dateStr) {
   selectedDate = (selectedDate === dateStr) ? null : dateStr;
   render();
   if (selectedDate) {
+    document.body.setAttribute("data-timeline", "open");
     const grp = document.querySelector('#timeline .tl-group[data-date="' + selectedDate + '"]');
     if (grp) {
       grp.scrollIntoView({ behavior: "smooth", block: "start" });
       grp.classList.add("flash");
       setTimeout(() => grp.classList.remove("flash"), 700);
     }
+  } else {
+    closeTimeline();
   }
+}
+
+function closeTimeline() {
+  document.body.removeAttribute("data-timeline");
+  if (selectedDate) { selectedDate = null; render(); }
 }
 
 async function openFile(path, mode) {
@@ -209,7 +287,7 @@ async function openFile(path, mode) {
 
 document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); selectedDate = null; renderAll(); };
 document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; renderAll(); };
-document.getElementById("refresh").onclick = load;
+window.addEventListener("focus", load);
 document.getElementById("search").oninput = (e) => { query = e.target.value; renderAll(); };
 document.getElementById("label").style.cursor = "pointer";
 document.getElementById("label").title = "오늘로";
@@ -271,7 +349,11 @@ async function openPanel() {
   editExts = (cfg.extensions || []).slice();
   renderExts();
   renderPaths();
-  document.getElementById("panel").style.display = "block";
+  document.body.setAttribute("data-settings", "open");
+}
+
+function closePanel() {
+  document.body.removeAttribute("data-settings");
 }
 
 async function addPath() {
@@ -293,7 +375,7 @@ async function savePaths() {
     document.getElementById("panelMsg").textContent = msg;
     return;
   }
-  document.getElementById("panel").style.display = "none";
+  closePanel();
   load();
 }
 
@@ -301,5 +383,7 @@ document.getElementById("settings").onclick = openPanel;
 document.getElementById("addPath").onclick = addPath;
 document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
-document.getElementById("closePanel").onclick = () => { document.getElementById("panel").style.display = "none"; };
+document.getElementById("closePanel").onclick = closePanel;
+document.getElementById("scrim").onclick = () => { closePanel(); closeTimeline(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePanel(); closeTimeline(); } });
 load();
