@@ -167,7 +167,7 @@ function startMemoEdit(cell, cellKey) {
   const finish = (save) => {
     ta.onblur = null;
     if (save) saveMemo(cellKey, ta.value);
-    else renderAll();
+    else render();
   };
   ta.onblur = () => finish(true);
   ta.onkeydown = (e) => {
