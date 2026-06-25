@@ -11,6 +11,9 @@ from everything_client import (
     load_config,
     normalize_extension,
     normalize_extensions,
+    set_memo,
+    load_memos,
+    save_memos,
 )
 
 
@@ -114,3 +117,45 @@ def test_normalize_extension_empty_returns_none():
 
 def test_normalize_extensions_dedupes_keeps_order_drops_none():
     assert normalize_extensions(["PDF", ".pdf", "hwp", "", "docx"]) == ["pdf", "hwp", "docx"]
+
+
+def test_set_memo_adds_new():
+    assert set_memo({}, "2026-06-25", "예산안 검토") == {"2026-06-25": "예산안 검토"}
+
+
+def test_set_memo_overwrites():
+    out = set_memo({"2026-06-25": "old"}, "2026-06-25", "new")
+    assert out == {"2026-06-25": "new"}
+
+
+def test_set_memo_strips_whitespace():
+    assert set_memo({}, "2026-06-25", "  보고서  ") == {"2026-06-25": "보고서"}
+
+
+def test_set_memo_blank_deletes_key():
+    assert set_memo({"2026-06-25": "x"}, "2026-06-25", "   ") == {}
+
+
+def test_set_memo_blank_missing_key_noop():
+    assert set_memo({"2026-06-24": "y"}, "2026-06-25", "") == {"2026-06-24": "y"}
+
+
+def test_set_memo_does_not_mutate_original():
+    original = {"2026-06-25": "x"}
+    set_memo(original, "2026-06-25", "z")
+    assert original == {"2026-06-25": "x"}
+
+
+def test_load_memos_missing_file_returns_empty():
+    assert load_memos("does_not_exist_memos.json") == {}
+
+
+def test_save_then_load_memos_roundtrip():
+    memos = {"2026-06-25": "한글 메모", "2026-06-24": "두 번째"}
+    fd, path = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        save_memos(memos, path)
+        assert load_memos(path) == memos
+    finally:
+        os.remove(path)
