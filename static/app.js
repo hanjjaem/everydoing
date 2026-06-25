@@ -1,3 +1,21 @@
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  try { localStorage.setItem("theme", theme); } catch (_) {}
+  const btn = document.getElementById("themeToggle");
+  if (btn) btn.textContent = theme === "dark" ? "☀" : "☾";
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  applyTheme(cur === "dark" ? "light" : "dark");
+}
+
+(function restoreTheme() {
+  let saved = "light";
+  try { saved = localStorage.getItem("theme") || "light"; } catch (_) {}
+  document.documentElement.setAttribute("data-theme", saved);
+})();
+
 let data = {};
 let cur = new Date();
 let query = "";
@@ -98,6 +116,8 @@ document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear
 document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); render(); };
 document.getElementById("refresh").onclick = load;
 document.getElementById("search").oninput = (e) => { query = e.target.value; render(); };
+document.getElementById("themeToggle").onclick = toggleTheme;
+applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
 
 let editPaths = [];
 let editExts = [];
