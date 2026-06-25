@@ -4,16 +4,114 @@
 <meta charset="utf-8">
 <title>업무정리캘린더</title>
 <style>
-  body { font-family: "Malgun Gothic", sans-serif; margin: 20px; }
-  header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  #grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .cell { border: 1px solid #ddd; min-height: 72px; padding: 4px; font-size: 12px; }
-  .cell.today { outline: 2px solid #3b82f6; }
-  .daynum { color: #888; }
-  .badge { background: #3b82f6; color: #fff; border-radius: 8px; padding: 0 6px; cursor: pointer; }
-  .files { margin-top: 4px; }
-  .file { cursor: pointer; color: #1d4ed8; text-decoration: underline; display: block; }
-  #msg { color: #b91c1c; }
+  :root {
+    --accent: #0066cc;
+    --accent-hover: #1a78d6;
+    --bg: #ffffff;
+    --surface: #f5f5f7;
+    --surface-2: #ffffff;
+    --border: #d2d2d7;
+    --text: #1d1d1f;
+    --text-dim: #6e6e73;
+    --on-accent: #ffffff;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 16px;
+    --space-4: 24px;
+    --radius-sm: 8px;
+    --radius-pill: 9999px;
+    --shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  :root[data-theme="dark"] {
+    --accent: #2997ff;
+    --accent-hover: #4aa8ff;
+    --bg: #1d1d1f;
+    --surface: #2c2c2e;
+    --surface-2: #242426;
+    --border: #3a3a3c;
+    --text: #f5f5f7;
+    --text-dim: #a1a1a6;
+    --on-accent: #ffffff;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+    margin: var(--space-4);
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex; align-items: center; gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  #label { font-size: 18px; letter-spacing: -0.02em; }
+
+  button {
+    font-family: inherit;
+    background: var(--accent);
+    color: var(--on-accent);
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:active { transform: scale(0.98); }
+
+  input {
+    font-family: inherit;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    outline: none;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  #weekhead {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-1);
+    font-weight: 600; color: var(--text-dim); margin-bottom: var(--space-1);
+  }
+  #grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-1); }
+  .cell {
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    min-height: 76px; padding: var(--space-1); font-size: 12px;
+  }
+  .cell.today { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .daynum { color: var(--text-dim); margin-bottom: 2px; }
+
+  .badge {
+    display: inline-block;
+    background: var(--accent); color: var(--on-accent);
+    border-radius: var(--radius-pill);
+    padding: 1px 8px; font-size: 11px; cursor: pointer;
+  }
+  .files { margin-top: var(--space-1); }
+  .file {
+    cursor: pointer; color: var(--accent); display: block;
+    padding: 1px 0;
+  }
+  .file:hover { text-decoration: underline; }
+
+  #msg { color: #ff453a; }
+
+  #panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    padding: var(--space-3); margin: var(--space-2) 0; max-width: 600px;
+  }
+  #panel hr { border: none; border-top: 1px solid var(--border); margin: var(--space-3) 0; }
+  #pathlist { list-style: none; padding: 0; }
 </style>
 </head>
 <body>
@@ -26,9 +124,9 @@
     <input id="search" type="text" placeholder="파일명 검색">
   </header>
   <div id="msg"></div>
-  <div id="panel" style="display:none;border:1px solid #ccc;padding:12px;margin:8px 0;max-width:600px;">
+  <div id="panel" style="display:none;">
     <strong>스캔 폴더</strong>
-    <ul id="pathlist" style="list-style:none;padding:0;"></ul>
+    <ul id="pathlist"></ul>
     <button id="addPath">폴더 추가</button>
     <hr>
     <strong>파일 유형</strong>
@@ -37,9 +135,9 @@
     <button id="addExt">추가</button>
     <button id="savePaths">저장</button>
     <button id="closePanel">닫기</button>
-    <span id="panelMsg" style="color:#b91c1c;"></span>
+    <span id="panelMsg" style="color:#ff453a;"></span>
   </div>
-  <div id="weekhead" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-weight:bold;">
+  <div id="weekhead">
     <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
   </div>
   <div id="grid"></div>
