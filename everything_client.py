@@ -186,7 +186,7 @@ def load_memos(path: str = "memos.json") -> dict:
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except FileNotFoundError:
+    except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 

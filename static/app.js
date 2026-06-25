@@ -123,7 +123,12 @@ function render() {
       count.className = "count";
       count.dataset.amt = amtLevel(files.length);
       count.textContent = files.length;
-      count.onclick = (e) => { e.stopPropagation(); selectDate(cellKey); };
+      count.onclick = (e) => {
+        e.stopPropagation();
+        const ae = document.activeElement;
+        if (ae && ae.classList.contains("memo-edit")) ae.blur();
+        selectDate(cellKey);
+      };
       cell.appendChild(count);
 
       const { dots, plus } = dotCount(files.length);

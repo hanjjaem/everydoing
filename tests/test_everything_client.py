@@ -159,3 +159,14 @@ def test_save_then_load_memos_roundtrip():
         assert load_memos(path) == memos
     finally:
         os.remove(path)
+
+
+def test_load_memos_corrupt_file_returns_empty():
+    fd, path = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("{not valid json")
+        assert load_memos(path) == {}
+    finally:
+        os.remove(path)
