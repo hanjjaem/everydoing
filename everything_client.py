@@ -76,3 +76,79 @@ def fetch_files(config: dict) -> "dict[str, list[dict]]":
     except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
         raise EverythingConnectionError(str(e))
     return group_by_date(data.get("results", []))
+
+
+def add_scan_path(scan_paths: "list[str]", new_path: str) -> "list[str]":
+    """Add a new scan path to the list if it's not empty and not already present.
+
+    Args:
+        scan_paths: existing list of scan paths.
+        new_path: path to add.
+
+    Returns:
+        new list with new_path appended, or copy of original if new_path is empty or duplicate.
+    """
+    if not new_path or new_path in scan_paths:
+        return list(scan_paths)
+    return list(scan_paths) + [new_path]
+
+
+def remove_scan_path(scan_paths: "list[str]", target: str) -> "list[str]":
+    """Remove all occurrences of target from scan_paths.
+
+    Args:
+        scan_paths: list of scan paths.
+        target: path to remove.
+
+    Returns:
+        new list without items equal to target.
+    """
+    return [p for p in scan_paths if p != target]
+
+
+def save_config(config: dict, path: str = "config.json") -> None:
+    """Save config dict to JSON file with UTF-8 encoding and indentation.
+
+    Args:
+        config: configuration dict to save.
+        path: file path to write to (default: config.json).
+    """
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+
+def normalize_extension(raw: str) -> "str | None":
+    """Normalize a file extension: strip whitespace, remove ONE leading dot, lowercase.
+
+    Empty result (after normalization) returns None. None input returns None.
+
+    Args:
+        raw: raw extension string (may include dot, spaces).
+
+    Returns:
+        normalized lowercase extension without leading dot, or None if empty.
+    """
+    if raw is None:
+        return None
+    s = raw.strip()
+    if s.startswith("."):
+        s = s[1:]
+    s = s.strip().lower()
+    return s or None
+
+
+def normalize_extensions(raws: "list") -> "list[str]":
+    """Normalize a list of extensions: map each through normalize_extension, drop None, dedupe preserving order.
+
+    Args:
+        raws: list of raw extension strings.
+
+    Returns:
+        deduplicated list of normalized extensions (without duplicates, order preserved).
+    """
+    out = []
+    for r in raws:
+        e = normalize_extension(r)
+        if e and e not in out:
+            out.append(e)
+    return out

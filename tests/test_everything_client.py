@@ -1,4 +1,17 @@
-from everything_client import build_search_query, filetime_to_date, group_by_date
+import os
+import tempfile
+
+from everything_client import (
+    build_search_query,
+    filetime_to_date,
+    group_by_date,
+    add_scan_path,
+    remove_scan_path,
+    save_config,
+    load_config,
+    normalize_extension,
+    normalize_extensions,
+)
 
 
 def test_build_search_query_combines_ext_and_paths():
@@ -52,3 +65,52 @@ def test_group_by_date_unknown_bucket():
     results = [{"name": "c.pdf", "path": "C:\\c.pdf", "date_modified": ""}]
     grouped = group_by_date(results)
     assert grouped == {"unknown": [{"name": "c.pdf", "path": "C:\\c.pdf"}]}
+
+
+def test_add_scan_path_appends_new():
+    assert add_scan_path(["C:\\A"], "C:\\B") == ["C:\\A", "C:\\B"]
+
+
+def test_add_scan_path_ignores_duplicate():
+    assert add_scan_path(["C:\\A"], "C:\\A") == ["C:\\A"]
+
+
+def test_add_scan_path_ignores_empty():
+    assert add_scan_path(["C:\\A"], "") == ["C:\\A"]
+
+
+def test_remove_scan_path_removes():
+    assert remove_scan_path(["C:\\A", "C:\\B"], "C:\\A") == ["C:\\B"]
+
+
+def test_remove_scan_path_absent_noop():
+    assert remove_scan_path(["C:\\A"], "C:\\X") == ["C:\\A"]
+
+
+def test_save_then_load_config_roundtrip():
+    cfg = {"scan_paths": ["C:\\A"], "server_port": 5000}
+    fd, path = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        save_config(cfg, path)
+        assert load_config(path) == cfg
+    finally:
+        os.remove(path)
+
+
+def test_normalize_extension_strips_dot_and_lowercases():
+    assert normalize_extension(" .HWP ") == "hwp"
+
+
+def test_normalize_extension_plain():
+    assert normalize_extension("docx") == "docx"
+
+
+def test_normalize_extension_empty_returns_none():
+    assert normalize_extension("") is None
+    assert normalize_extension("   ") is None
+    assert normalize_extension(".") is None
+
+
+def test_normalize_extensions_dedupes_keeps_order_drops_none():
+    assert normalize_extensions(["PDF", ".pdf", "hwp", "", "docx"]) == ["pdf", "hwp", "docx"]
