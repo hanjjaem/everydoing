@@ -10,8 +10,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-reqwest = { version = "0.12", features = ["blocking", "json"] }
 chrono = "0.4"
+ntfs-reader = "0.4"
 dirs = "5"
 opener = "0.7"
 rfd = "0.15"
