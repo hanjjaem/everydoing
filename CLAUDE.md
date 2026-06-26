@@ -35,6 +35,7 @@
 ## 자주 막히는 것들 (시행착오 메모)
 - MFT 접근에는 관리자 권한 필요. `cargo tauri dev`도 관리자 터미널에서 실행.
 - 비NTFS 드라이브(USB FAT32 등)는 자동으로 skipped 처리되고 UI에 안내 표시.
+- `ntfs_reader`의 `info.path`는 `\\.\D:\폴더\파일` 형태로 반환됨. `path_matches()` 전에 반드시 `strip_prefix("\\\\.\\")` 로 정규화 필요.
 
 ## 코드 수정 후 체크리스트
 - `cargo test` (src-tauri/ 디렉토리에서) 통과 확인
