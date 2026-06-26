@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "EveryDoing",
+  "version": "0.1.0",
+  "identifier": "kr.everydoing.app",
+  "build": { "frontendDist": "../static" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      { "title": "EveryDoing", "width": 1280, "height": 840, "minWidth": 900, "minHeight": 600 }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico"]
+  }
+}
