@@ -106,8 +106,9 @@ pub fn scan(cfg: &crate::store::Config) -> ScanResult {
             Ok(m) => m,
             Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
         };
+        let mut cache = ntfs_reader::file_info::VecCache::default();
         for file in mft.files() {
-            let info = FileInfo::new(&mft, &file);
+            let info = FileInfo::with_cache(&mft, &file, &mut cache);
             if info.is_directory { continue; }
             if !ext_matches(&info.name, &cfg.extensions) { continue; }
             let full_path = info.path.to_string_lossy().to_string();

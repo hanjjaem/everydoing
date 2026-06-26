@@ -7,9 +7,14 @@ use std::collections::BTreeMap;
 use indexer::ScanResult;
 
 #[tauri::command]
-fn list_files() -> ScanResult {
+async fn list_files() -> ScanResult {
     let cfg = store::load_config();
-    indexer::scan(&cfg)
+    tauri::async_runtime::spawn_blocking(move || indexer::scan(&cfg))
+        .await
+        .unwrap_or_else(|_| indexer::ScanResult {
+            files: std::collections::BTreeMap::new(),
+            skipped: vec!["스캔 스레드 오류".to_string()],
+        })
 }
 
 #[tauri::command]
