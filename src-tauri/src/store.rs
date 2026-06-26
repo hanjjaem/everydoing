@@ -38,8 +38,6 @@ pub fn validate_config(
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
-    pub everything_host: String,
-    pub everything_port: u16,
     pub scan_paths: Vec<String>,
     pub extensions: Vec<String>,
 }
@@ -47,8 +45,6 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            everything_host: "localhost".into(),
-            everything_port: 8080,
             scan_paths: vec![],
             extensions: ["hwp","hwpx","doc","docx","xls","xlsx","ppt","pptx","pdf"]
                 .iter().map(|s| s.to_string()).collect(),
