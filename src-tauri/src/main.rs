@@ -1,15 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod store;
-mod everything;
+mod indexer;
 
 use std::collections::BTreeMap;
-use everything::FileItem;
+use indexer::ScanResult;
 
 #[tauri::command]
-fn list_files() -> Result<BTreeMap<String, Vec<FileItem>>, String> {
+fn list_files() -> ScanResult {
     let cfg = store::load_config();
-    everything::fetch_files(&cfg)
+    indexer::scan(&cfg)
 }
 
 #[tauri::command]
