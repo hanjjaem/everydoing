@@ -21,6 +21,7 @@ let cur = new Date();
 let query = "";
 let selectedDate = null;
 let memos = {};
+let animateNext = true;
 
 function filterFiles(files, q) {
   const norm = (q || "").trim().toLowerCase();
@@ -29,12 +30,6 @@ function filterFiles(files, q) {
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-
-function amtLevel(n) {
-  if (n <= 2) return 1;
-  if (n <= 7) return 2;
-  return 3;
-}
 
 const EXT_TYPE = {
   hwp:  { color: "#1E6FE8", label: "한" },
@@ -91,6 +86,7 @@ function buildGroups(data, y, m, q) {
 async function load() {
   const msg = document.getElementById("msg");
   msg.textContent = "";
+  animateNext = true;
   try {
     const res = await fetch("/api/files");
     if (!res.ok) {
@@ -138,7 +134,10 @@ function render() {
     if (y === today.getFullYear() && m === today.getMonth() && d === today.getDate())
       cell.classList.add("today");
     const cellKey = key(y, m, d);
+    const dow = new Date(y, m, d).getDay();
+    if (dow === 0 || dow === 6) cell.classList.add("weekend");
     if (cellKey === selectedDate) cell.classList.add("selected");
+    if (animateNext) { cell.classList.add("anim"); cell.style.animationDelay = (d * 0.012) + "s"; }
     const num = document.createElement("div");
     num.className = "daynum";
     num.textContent = d;
@@ -147,35 +146,37 @@ function render() {
     if (files.length) {
       activeDays++; totalFiles += files.length;
       cell.classList.add("has-files");
-      const count = document.createElement("span");
-      count.className = "count";
-      count.dataset.amt = amtLevel(files.length);
-      count.textContent = files.length;
-      count.onclick = (e) => {
+      const act = document.createElement("div");
+      act.className = "act";
+      act.onclick = (e) => {
         e.stopPropagation();
         const ae = document.activeElement;
         if (ae && ae.classList.contains("memo-edit")) ae.blur();
         selectDate(cellKey);
       };
-      cell.appendChild(count);
-
       const { chips, plus } = typeChips(files);
-      const typeWrap = document.createElement("span");
-      typeWrap.className = "types";
+      const chipsEl = document.createElement("span");
+      chipsEl.className = "act-chips";
       chips.forEach(c => {
         const chip = document.createElement("span");
         chip.className = "type-chip";
         chip.style.background = c.color;
         chip.textContent = c.label;
-        typeWrap.appendChild(chip);
+        chipsEl.appendChild(chip);
       });
       if (plus) {
         const more = document.createElement("span");
         more.className = "more";
         more.textContent = "+";
-        typeWrap.appendChild(more);
+        chipsEl.appendChild(more);
       }
-      cell.appendChild(typeWrap);
+      act.appendChild(chipsEl);
+
+      const countEl = document.createElement("span");
+      countEl.className = "act-count";
+      countEl.textContent = files.length;
+      act.appendChild(countEl);
+      cell.appendChild(act);
     }
     attachMemo(cell, cellKey);
     grid.appendChild(cell);
@@ -184,6 +185,7 @@ function render() {
   summary.innerHTML = activeDays
     ? '<b>' + activeDays + '</b>일 기록 · <b>' + totalFiles + '</b>개 문서'
     : '이 달의 기록 없음';
+  animateNext = false;
 }
 
 function attachMemo(cell, cellKey) {
@@ -325,13 +327,13 @@ async function openFile(path, mode) {
   }
 }
 
-document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); selectedDate = null; renderAll(); };
-document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; renderAll(); };
+document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); selectedDate = null; animateNext = true; renderAll(); };
+document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; animateNext = true; renderAll(); };
 window.addEventListener("focus", load);
 document.getElementById("search").oninput = (e) => { query = e.target.value; renderAll(); };
 document.getElementById("label").style.cursor = "pointer";
 document.getElementById("label").title = "오늘로";
-document.getElementById("label").onclick = () => { cur = new Date(); selectedDate = null; renderAll(); };
+document.getElementById("label").onclick = () => { cur = new Date(); selectedDate = null; animateNext = true; renderAll(); };
 document.getElementById("themeToggle").onclick = toggleTheme;
 applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
 
