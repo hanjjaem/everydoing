@@ -12,6 +12,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 chrono = "0.4"
 ntfs-reader = "0.4"
+walkdir = "2"
 dirs = "5"
 opener = "0.7"
 rfd = "0.15"

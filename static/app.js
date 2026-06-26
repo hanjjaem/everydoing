@@ -80,6 +80,17 @@ function buildGroups(data, y, m, q) {
 
 async function load() {
   const msg = document.getElementById("msg");
+  try { memos = await invoke("get_memos"); } catch (_) { memos = {}; }
+  try { scanPaths = (await invoke("get_config")).scan_paths || []; } catch (_) { scanPaths = []; }
+
+  if (scanPaths.length === 0) {
+    msg.textContent = "";
+    data = {};
+    renderAll();
+    openPanel();
+    return;
+  }
+
   msg.textContent = "인덱싱 중...";
   animateNext = true;
   try {
@@ -94,8 +105,6 @@ async function load() {
     msg.textContent = "파일 스캔 실패: " + e;
     data = {};
   }
-  try { memos = await invoke("get_memos"); } catch (_) { memos = {}; }
-  try { scanPaths = (await invoke("get_config")).scan_paths || []; } catch (_) { scanPaths = []; }
   renderAll();
 }
 

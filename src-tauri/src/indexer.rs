@@ -96,18 +96,27 @@ pub fn scan(cfg: &crate::store::Config) -> ScanResult {
     let mut raws: Vec<RawItem> = Vec::new();
     let mut skipped: Vec<String> = Vec::new();
 
+    let t0 = std::time::Instant::now();
     for drive in &drives {
         let volume_path = format!("\\\\.\\{}", drive);
+        let t_volume = std::time::Instant::now();
         let volume = match Volume::new(&volume_path) {
             Ok(v) => v,
             Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
         };
+        eprintln!("[scan] {} Volume::new: {}ms", drive, t_volume.elapsed().as_millis());
+        let t_mft = std::time::Instant::now();
         let mft = match Mft::new(volume) {
             Ok(m) => m,
             Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
         };
+        eprintln!("[scan] {} Mft::new: {}ms", drive, t_mft.elapsed().as_millis());
+        let t_vol = std::time::Instant::now();
+        let mut total = 0u64;
+        let mut matched = 0u64;
         let mut cache = ntfs_reader::file_info::VecCache::default();
         for file in mft.files() {
+            total += 1;
             if file.is_directory() { continue; }
             // 경로 재구성(비쌈) 전에 확장자로 먼저 걸러낸다
             let name = match file.get_best_file_name(&mft) {
@@ -117,16 +126,60 @@ pub fn scan(cfg: &crate::store::Config) -> ScanResult {
             if !ext_matches(&name, &cfg.extensions) { continue; }
             // 확장자 통과한 파일만 전체 경로 재구성
             let info = FileInfo::with_cache(&mft, &file, &mut cache);
-            let full_path = info.path.to_string_lossy().to_string();
+            let raw_path = info.path.to_string_lossy().to_string();
+            // ntfs_reader는 \\.\D:\folder\file 형태로 반환 → D:\folder\file 로 정규화
+            let full_path = raw_path
+                .strip_prefix("\\\\.\\")
+                .unwrap_or(&raw_path)
+                .to_string();
             if !path_matches(&full_path, &cfg.scan_paths) { continue; }
             let unix_secs = info.modified
                 .map(|odt| odt.unix_timestamp())
                 .unwrap_or(0);
+            matched += 1;
             raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
         }
+        eprintln!("[scan] {} 완료: {}ms, 전체 {}개 중 매칭 {}개",
+            drive, t_vol.elapsed().as_millis(), total, matched);
     }
 
+    eprintln!("[scan] 전체 완료: {}ms, 결과 {}개", t0.elapsed().as_millis(), raws.len());
     ScanResult { files: group_by_date(raws), skipped }
+}
+
+pub fn scan_walk(cfg: &crate::store::Config) -> ScanResult {
+    let t0 = std::time::Instant::now();
+    let mut raws: Vec<RawItem> = Vec::new();
+
+    for scan_path in &cfg.scan_paths {
+        let t_path = std::time::Instant::now();
+        let mut count = 0u64;
+        for entry in walkdir::WalkDir::new(scan_path)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if !path.is_file() { continue; }
+            let name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            if !ext_matches(&name, &cfg.extensions) { continue; }
+            let unix_secs = entry.metadata().ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            let full_path = path.to_string_lossy().to_string();
+            count += 1;
+            raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
+        }
+        eprintln!("[walkdir] {} 완료: {}ms, {}개", scan_path, t_path.elapsed().as_millis(), count);
+    }
+
+    eprintln!("[walkdir] 전체: {}ms, {}개", t0.elapsed().as_millis(), raws.len());
+    ScanResult { files: group_by_date(raws), skipped: vec![] }
 }
 
 #[cfg(test)]
@@ -134,6 +187,32 @@ mod tests {
     use super::*;
 
     // --- filetime_to_date ---
+    #[test]
+    #[ignore]
+    fn scan_bench_mft() {
+        let cfg = crate::store::load_config();
+        println!("scan_paths: {:?}", cfg.scan_paths);
+        let t = std::time::Instant::now();
+        let result = super::scan(&cfg);
+        let elapsed = t.elapsed().as_millis();
+        let total: usize = result.files.values().map(|v| v.len()).sum();
+        println!("[MFT] 완료: {}ms, 날짜 {}개, 파일 {}개, skipped: {:?}",
+            elapsed, result.files.len(), total, result.skipped);
+    }
+
+    #[test]
+    #[ignore]
+    fn scan_bench_walkdir() {
+        let cfg = crate::store::load_config();
+        println!("scan_paths: {:?}", cfg.scan_paths);
+        let t = std::time::Instant::now();
+        let result = super::scan_walk(&cfg);
+        let elapsed = t.elapsed().as_millis();
+        let total: usize = result.files.values().map(|v| v.len()).sum();
+        println!("[walkdir] 완료: {}ms, 날짜 {}개, 파일 {}개",
+            elapsed, result.files.len(), total);
+    }
+
     #[test]
     fn filetime_known_value() {
         // FILETIME 134256960000000000 → unix 1781222400 → 2026-06-12

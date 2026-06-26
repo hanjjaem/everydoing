@@ -17,3 +17,5 @@ __pycache__/
 # Rust / Tauri 빌드 산출물
 src-tauri/target/
 
+.claude/
+C:\Users\user\AppData\Local\Temp\tauri_dev_log.txt
