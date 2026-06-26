@@ -108,15 +108,21 @@ pub fn scan(cfg: &crate::store::Config) -> ScanResult {
         };
         let mut cache = ntfs_reader::file_info::VecCache::default();
         for file in mft.files() {
+            if file.is_directory() { continue; }
+            // 경로 재구성(비쌈) 전에 확장자로 먼저 걸러낸다
+            let name = match file.get_best_file_name(&mft) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            if !ext_matches(&name, &cfg.extensions) { continue; }
+            // 확장자 통과한 파일만 전체 경로 재구성
             let info = FileInfo::with_cache(&mft, &file, &mut cache);
-            if info.is_directory { continue; }
-            if !ext_matches(&info.name, &cfg.extensions) { continue; }
             let full_path = info.path.to_string_lossy().to_string();
             if !path_matches(&full_path, &cfg.scan_paths) { continue; }
             let unix_secs = info.modified
                 .map(|odt| odt.unix_timestamp())
                 .unwrap_or(0);
-            raws.push(RawItem { name: info.name, path: full_path, date_modified: unix_secs });
+            raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
         }
     }
 
