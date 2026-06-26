@@ -80,13 +80,18 @@ function buildGroups(data, y, m, q) {
 
 async function load() {
   const msg = document.getElementById("msg");
-  msg.textContent = "";
+  msg.textContent = "인덱싱 중...";
   animateNext = true;
   try {
-    data = await invoke("list_files");
+    const result = await invoke("list_files");
+    data = result.files;
+    if (result.skipped && result.skipped.length > 0) {
+      msg.textContent = "건너뛴 드라이브: " + result.skipped.join(", ") + " (NTFS가 아니거나 읽을 수 없음)";
+    } else {
+      msg.textContent = "";
+    }
   } catch (e) {
-    msg.textContent = "Everything HTTP 서버에 연결할 수 없습니다. " +
-      "Everything → 도구 → 옵션 → HTTP 서버를 켰는지, 포트가 설정과 맞는지 확인하세요. (" + e + ")";
+    msg.textContent = "파일 스캔 실패: " + e;
     data = {};
   }
   try { memos = await invoke("get_memos"); } catch (_) { memos = {}; }
