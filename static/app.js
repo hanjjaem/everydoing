@@ -1,27 +1,20 @@
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  try { localStorage.setItem("theme", theme); } catch (_) {}
-  const btn = document.getElementById("themeToggle");
-  if (btn) btn.textContent = theme === "dark" ? "☀" : "☾";
-}
-
-function toggleTheme() {
-  const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
-  applyTheme(cur === "dark" ? "light" : "dark");
-}
-
-(function restoreTheme() {
-  let saved = "light";
-  try { saved = localStorage.getItem("theme") || "light"; } catch (_) {}
-  document.documentElement.setAttribute("data-theme", saved);
-})();
-
 let data = {};
 let cur = new Date();
 let query = "";
 let selectedDate = null;
 let memos = {};
 let animateNext = true;
+let scanPaths = [];
+let monthStats = { activeDays: 0, totalFiles: 0, busyDate: null, busyCount: 0 };
+
+const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const LEGEND = [
+  { color: "#1E6FE8", label: "한", name: "한글 (hwp)" },
+  { color: "#2B579A", label: "W", name: "워드 (doc)" },
+  { color: "#217346", label: "X", name: "엑셀 (xls)" },
+  { color: "#C43E1C", label: "P", name: "PPT (ppt)" },
+  { color: "#E5252A", label: "F", name: "PDF" },
+];
 
 function filterFiles(files, q) {
   const norm = (q || "").trim().toLowerCase();
@@ -106,6 +99,10 @@ async function load() {
     const r = await fetch("/api/memos");
     memos = r.ok ? await r.json() : {};
   } catch (_) { memos = {}; }
+  try {
+    const c = await fetch("/api/config");
+    scanPaths = c.ok ? ((await c.json()).scan_paths || []) : [];
+  } catch (_) { scanPaths = []; }
   renderAll();
 }
 
@@ -122,7 +119,7 @@ function render() {
   const first = new Date(y, m, 1).getDay();
   const days = new Date(y, m + 1, 0).getDate();
   const today = new Date();
-  let activeDays = 0, totalFiles = 0;
+  let activeDays = 0, totalFiles = 0, busyDate = null, busyCount = 0;
   for (let i = 0; i < first; i++) {
     const pad = document.createElement("div");
     pad.className = "cell";
@@ -134,8 +131,6 @@ function render() {
     if (y === today.getFullYear() && m === today.getMonth() && d === today.getDate())
       cell.classList.add("today");
     const cellKey = key(y, m, d);
-    const dow = new Date(y, m, d).getDay();
-    if (dow === 0 || dow === 6) cell.classList.add("weekend");
     if (cellKey === selectedDate) cell.classList.add("selected");
     if (animateNext) { cell.classList.add("anim"); cell.style.animationDelay = (d * 0.012) + "s"; }
     const num = document.createElement("div");
@@ -145,6 +140,7 @@ function render() {
     const files = filterFiles(data[cellKey] || [], query);
     if (files.length) {
       activeDays++; totalFiles += files.length;
+      if (files.length > busyCount) { busyCount = files.length; busyDate = d; }
       cell.classList.add("has-files");
       const act = document.createElement("div");
       act.className = "act";
@@ -181,10 +177,7 @@ function render() {
     attachMemo(cell, cellKey);
     grid.appendChild(cell);
   }
-  const summary = document.getElementById("summary");
-  summary.innerHTML = activeDays
-    ? '<b>' + activeDays + '</b>일 기록 · <b>' + totalFiles + '</b>개 문서'
-    : '이 달의 기록 없음';
+  monthStats = { activeDays, totalFiles, busyDate, busyCount };
   animateNext = false;
 }
 
@@ -233,7 +226,110 @@ async function saveMemo(cellKey, text) {
 
 function renderAll() {
   render();
+  renderSidebar();
   renderTimeline();
+}
+
+function renderSidebar() {
+  renderMonthNav();
+  renderFolders();
+  renderLegend();
+  renderStats();
+}
+
+function renderMonthNav() {
+  const box = document.getElementById("monthNav");
+  const y = cur.getFullYear(), m = cur.getMonth();
+  box.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "mininav-head";
+  const prevY = document.createElement("button"); prevY.textContent = "‹";
+  prevY.onclick = () => { cur = new Date(y - 1, m, 1); selectedDate = null; animateNext = true; renderAll(); };
+  const yLabel = document.createElement("span"); yLabel.className = "y"; yLabel.textContent = y;
+  const nextY = document.createElement("button"); nextY.textContent = "›";
+  nextY.onclick = () => { cur = new Date(y + 1, m, 1); selectedDate = null; animateNext = true; renderAll(); };
+  head.append(prevY, yLabel, nextY);
+  box.appendChild(head);
+
+  const grid = document.createElement("div");
+  grid.className = "mininav-grid";
+  const today = new Date();
+  MONTHS.forEach((name, i) => {
+    const b = document.createElement("button");
+    b.textContent = name;
+    if (i === m) b.classList.add("cur");
+    b.onclick = () => { cur = new Date(y, i, 1); selectedDate = null; animateNext = true; renderAll(); };
+    grid.appendChild(b);
+  });
+  box.appendChild(grid);
+
+  const todayBtn = document.createElement("button");
+  todayBtn.className = "mininav-today";
+  todayBtn.textContent = "오늘로";
+  todayBtn.onclick = () => { cur = new Date(); selectedDate = null; animateNext = true; renderAll(); };
+  box.appendChild(todayBtn);
+}
+
+function renderFolders() {
+  const box = document.getElementById("sideFolders");
+  box.innerHTML = "";
+  if (!scanPaths.length) {
+    const e = document.createElement("div");
+    e.className = "side-empty";
+    e.textContent = "폴더 없음 · 관리에서 추가";
+    box.appendChild(e);
+    return;
+  }
+  scanPaths.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "side-folder";
+    const s = document.createElement("span");
+    s.textContent = p;
+    s.title = p;
+    row.appendChild(s);
+    box.appendChild(row);
+  });
+}
+
+function renderLegend() {
+  const box = document.getElementById("legend");
+  box.innerHTML = "";
+  LEGEND.forEach(t => {
+    const row = document.createElement("div");
+    row.className = "legend-row";
+    const chip = document.createElement("span");
+    chip.className = "type-chip";
+    chip.style.background = t.color;
+    chip.textContent = t.label;
+    const name = document.createElement("span");
+    name.textContent = t.name;
+    row.append(chip, name);
+    box.appendChild(row);
+  });
+}
+
+function renderStats() {
+  const box = document.getElementById("statBox");
+  const { activeDays, totalFiles, busyDate, busyCount } = monthStats;
+  box.innerHTML = "";
+  if (!activeDays) {
+    const e = document.createElement("div");
+    e.className = "side-empty";
+    e.textContent = "이 달의 기록 없음";
+    box.appendChild(e);
+    return;
+  }
+  const row = document.createElement("div");
+  row.className = "stat-row";
+  row.innerHTML = '<span class="stat-num">' + activeDays + '</span><span class="stat-label">일 기록 · '
+    + totalFiles + '개 문서</span>';
+  box.appendChild(row);
+  if (busyDate) {
+    const sub = document.createElement("div");
+    sub.className = "stat-sub";
+    sub.innerHTML = '가장 많은 날 <b>' + (cur.getMonth() + 1) + '월 ' + busyDate + '일</b> · ' + busyCount + '개';
+    box.appendChild(sub);
+  }
 }
 
 function actionBtn(label, handler) {
@@ -334,8 +430,6 @@ document.getElementById("search").oninput = (e) => { query = e.target.value; ren
 document.getElementById("label").style.cursor = "pointer";
 document.getElementById("label").title = "오늘로";
 document.getElementById("label").onclick = () => { cur = new Date(); selectedDate = null; animateNext = true; renderAll(); };
-document.getElementById("themeToggle").onclick = toggleTheme;
-applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
 
 let editPaths = [];
 let editExts = [];
@@ -422,6 +516,7 @@ async function savePaths() {
 }
 
 document.getElementById("settings").onclick = openPanel;
+document.getElementById("manageFolders").onclick = openPanel;
 document.getElementById("addPath").onclick = addPath;
 document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
