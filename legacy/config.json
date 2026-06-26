@@ -1,0 +1,23 @@
+{
+  "everything_host": "localhost",
+  "everything_port": 8080,
+  "scan_paths": [
+    "C:\\Users\\user\\Desktop",
+    "C:\\Users\\user\\Documents",
+    "C:\\Users\\user\\Downloads",
+    "D:/"
+  ],
+  "extensions": [
+    "hwp",
+    "hwpx",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "pdf",
+    "html"
+  ],
+  "server_port": 5000
+}
