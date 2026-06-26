@@ -1,3 +1,5 @@
+const invoke = window.__TAURI__.core.invoke;
+
 let data = {};
 let cur = new Date();
 let query = "";
@@ -81,28 +83,14 @@ async function load() {
   msg.textContent = "";
   animateNext = true;
   try {
-    const res = await fetch("/api/files");
-    if (!res.ok) {
-      let detail = "";
-      try { detail = " (" + (await res.json()).error + ")"; } catch (_) {}
-      msg.textContent = "Everything HTTP 서버에 연결할 수 없습니다. " +
-        "Everything → 도구 → 옵션 → HTTP 서버를 켰는지, 포트가 config.json과 맞는지 확인하세요." + detail;
-      data = {};
-    } else {
-      data = await res.json();
-    }
+    data = await invoke("list_files");
   } catch (e) {
-    msg.textContent = "서버 응답을 받을 수 없습니다: " + e;
+    msg.textContent = "Everything HTTP 서버에 연결할 수 없습니다. " +
+      "Everything → 도구 → 옵션 → HTTP 서버를 켰는지, 포트가 설정과 맞는지 확인하세요. (" + e + ")";
     data = {};
   }
-  try {
-    const r = await fetch("/api/memos");
-    memos = r.ok ? await r.json() : {};
-  } catch (_) { memos = {}; }
-  try {
-    const c = await fetch("/api/config");
-    scanPaths = c.ok ? ((await c.json()).scan_paths || []) : [];
-  } catch (_) { scanPaths = []; }
+  try { memos = await invoke("get_memos"); } catch (_) { memos = {}; }
+  try { scanPaths = (await invoke("get_config")).scan_paths || []; } catch (_) { scanPaths = []; }
   renderAll();
 }
 
@@ -215,13 +203,7 @@ async function saveMemo(cellKey, text) {
   const trimmed = text.trim();
   if (trimmed) memos[cellKey] = trimmed; else delete memos[cellKey];
   render();
-  try {
-    await fetch("/api/memos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: cellKey, text: trimmed }),
-    });
-  } catch (_) {}
+  try { await invoke("save_memo", { date: cellKey, text: trimmed }); } catch (_) {}
 }
 
 function renderAll() {
@@ -380,7 +362,7 @@ function renderTimeline() {
       acts.className = "tl-actions";
       acts.appendChild(actionBtn("열기", e => { e.stopPropagation(); openFile(f.path, "file"); }));
       acts.appendChild(actionBtn("폴더", e => { e.stopPropagation(); openFile(f.path, "folder"); }));
-      acts.appendChild(actionBtn("경로", e => { e.stopPropagation(); navigator.clipboard.writeText(f.path); }));
+      acts.appendChild(actionBtn("경로", e => { e.stopPropagation(); invoke("copy_text", { text: f.path }); }));
       row.appendChild(acts);
       row.onclick = () => openFile(f.path, "file");
       grp.appendChild(row);
@@ -412,14 +394,9 @@ function closeTimeline() {
 
 async function openFile(path, mode) {
   try {
-    const res = await fetch("/api/open", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, mode }),
-    });
-    if (!res.ok) alert("파일을 찾을 수 없습니다");
+    await invoke("open_path", { path, mode });
   } catch (e) {
-    alert("서버에 연결할 수 없습니다: " + e);
+    alert(e);
   }
 }
 
@@ -479,8 +456,7 @@ function renderPaths() {
 
 async function openPanel() {
   document.getElementById("panelMsg").textContent = "";
-  const res = await fetch("/api/config");
-  const cfg = await res.json();
+  const cfg = await invoke("get_config");
   editPaths = (cfg.scan_paths || []).slice();
   editExts = (cfg.extensions || []).slice();
   renderExts();
@@ -493,22 +469,16 @@ function closePanel() {
 }
 
 async function addPath() {
-  const res = await fetch("/api/pick-folder", { method: "POST" });
-  if (!res.ok) { document.getElementById("panelMsg").textContent = "폴더 선택 실패"; return; }
-  const { path } = await res.json();
+  let path = null;
+  try { path = await invoke("pick_folder"); } catch (_) {}
   if (path && !editPaths.includes(path)) { editPaths.push(path); renderPaths(); }
 }
 
 async function savePaths() {
-  const res = await fetch("/api/config", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ scan_paths: editPaths, extensions: editExts }),
-  });
-  if (!res.ok) {
-    let msg = "저장 실패";
-    try { msg = (await res.json()).error || msg; } catch (_) {}
-    document.getElementById("panelMsg").textContent = msg;
+  try {
+    await invoke("save_config", { scanPaths: editPaths, extensions: editExts });
+  } catch (e) {
+    document.getElementById("panelMsg").textContent = e;
     return;
   }
   closePanel();
