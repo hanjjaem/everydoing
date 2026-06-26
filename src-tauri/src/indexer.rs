@@ -18,6 +18,7 @@ pub struct RawItem {
 }
 
 /// FILETIME(100ns ticks since 1601) → local date string. Kept for legacy/utility.
+#[allow(dead_code)]
 pub fn filetime_to_date(ft: i64) -> Option<String> {
     if ft <= 0 { return None; }
     let secs = ft / 10_000_000 - FILETIME_POSIX_OFFSET;
@@ -82,15 +83,43 @@ pub fn ext_matches(name: &str, extensions: &[String]) -> bool {
     false
 }
 
-// Stub populated in Task 3
 #[derive(Serialize)]
 pub struct ScanResult {
     pub files: BTreeMap<String, Vec<FileItem>>,
     pub skipped: Vec<String>,
 }
 
-pub fn scan(_cfg: &crate::store::Config) -> ScanResult {
-    ScanResult { files: BTreeMap::new(), skipped: vec![] }
+pub fn scan(cfg: &crate::store::Config) -> ScanResult {
+    use ntfs_reader::{file_info::FileInfo, mft::Mft, volume::Volume};
+
+    let drives = drives_from_paths(&cfg.scan_paths);
+    let mut raws: Vec<RawItem> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
+
+    for drive in &drives {
+        let volume_path = format!("\\\\.\\{}", drive);
+        let volume = match Volume::new(&volume_path) {
+            Ok(v) => v,
+            Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
+        };
+        let mft = match Mft::new(volume) {
+            Ok(m) => m,
+            Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
+        };
+        for file in mft.files() {
+            let info = FileInfo::new(&mft, &file);
+            if info.is_directory { continue; }
+            if !ext_matches(&info.name, &cfg.extensions) { continue; }
+            let full_path = info.path.to_string_lossy().to_string();
+            if !path_matches(&full_path, &cfg.scan_paths) { continue; }
+            let unix_secs = info.modified
+                .map(|odt| odt.unix_timestamp())
+                .unwrap_or(0);
+            raws.push(RawItem { name: info.name, path: full_path, date_modified: unix_secs });
+        }
+    }
+
+    ScanResult { files: group_by_date(raws), skipped }
 }
 
 #[cfg(test)]
