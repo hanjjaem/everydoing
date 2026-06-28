@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use crate::indexer::ScanResult;
 
 pub fn normalize_extension(raw: &str) -> Option<String> {
     let mut s = raw.trim().to_string();
@@ -61,6 +62,34 @@ pub fn data_dir() -> PathBuf {
 
 fn config_path() -> PathBuf { let mut p = data_dir(); p.push("config.json"); p }
 fn memos_path() -> PathBuf { let mut p = data_dir(); p.push("memos.json"); p }
+fn index_path() -> PathBuf { let mut p = data_dir(); p.push("index.json"); p }
+
+#[derive(Serialize, Deserialize)]
+struct IndexCache {
+    scan_paths: Vec<String>,
+    extensions: Vec<String>,
+    #[serde(flatten)]
+    result: ScanResult,
+}
+
+pub fn save_index(cfg: &Config, result: &ScanResult) -> Result<(), String> {
+    let cache = IndexCache {
+        scan_paths: cfg.scan_paths.clone(),
+        extensions: cfg.extensions.clone(),
+        result: result.clone(),
+    };
+    let s = serde_json::to_string_pretty(&cache).map_err(|e| e.to_string())?;
+    std::fs::write(index_path(), s).map_err(|e| e.to_string())
+}
+
+pub fn load_index(cfg: &Config) -> Option<ScanResult> {
+    let s = std::fs::read_to_string(index_path()).ok()?;
+    let cache: IndexCache = serde_json::from_str(&s).ok()?;
+    if cache.scan_paths != cfg.scan_paths || cache.extensions != cfg.extensions {
+        return None;
+    }
+    Some(cache.result)
+}
 
 pub fn load_config() -> Config {
     match std::fs::read_to_string(config_path()) {
@@ -136,5 +165,41 @@ mod tests {
         let (paths, exts) = validate_config(vec!["C:\\A".into()], vec!["PDF".into(), ".pdf".into()]).unwrap();
         assert_eq!(paths, vec!["C:\\A"]);
         assert_eq!(exts, vec!["pdf"]);
+    }
+
+    #[test]
+    fn index_roundtrip() {
+        use std::collections::BTreeMap;
+        use crate::indexer::{ScanResult, FileItem};
+        let cfg = Config {
+            scan_paths: vec!["D:\\test".to_string()],
+            extensions: vec!["pdf".to_string()],
+        };
+        let mut files = BTreeMap::new();
+        files.insert("2026-06-29".to_string(), vec![FileItem {
+            name: "a.pdf".to_string(),
+            path: "D:\\test\\a.pdf".to_string(),
+        }]);
+        let result = ScanResult { files, skipped: vec![] };
+        save_index(&cfg, &result).unwrap();
+        let loaded = load_index(&cfg).unwrap();
+        assert_eq!(loaded.files["2026-06-29"][0].name, "a.pdf");
+    }
+
+    #[test]
+    fn index_invalidated_when_paths_differ() {
+        use crate::indexer::ScanResult;
+        use std::collections::BTreeMap;
+        let cfg_a = Config {
+            scan_paths: vec!["D:\\a".to_string()],
+            extensions: vec!["pdf".to_string()],
+        };
+        let cfg_b = Config {
+            scan_paths: vec!["D:\\b".to_string()],
+            extensions: vec!["pdf".to_string()],
+        };
+        let result = ScanResult { files: BTreeMap::new(), skipped: vec![] };
+        save_index(&cfg_a, &result).unwrap();
+        assert!(load_index(&cfg_b).is_none());
     }
 }

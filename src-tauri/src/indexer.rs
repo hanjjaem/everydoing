@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use chrono::{TimeZone, Local};
 
 const FILETIME_POSIX_OFFSET: i64 = 11_644_473_600;
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct FileItem {
     pub name: String,
     pub path: String,
@@ -83,7 +83,7 @@ pub fn ext_matches(name: &str, extensions: &[String]) -> bool {
     false
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ScanResult {
     pub files: BTreeMap<String, Vec<FileItem>>,
     pub skipped: Vec<String>,
