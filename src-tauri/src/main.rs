@@ -5,16 +5,27 @@ mod indexer;
 
 use std::collections::BTreeMap;
 use indexer::ScanResult;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
-async fn list_files() -> ScanResult {
+fn load_cache() -> Option<ScanResult> {
     let cfg = store::load_config();
-    tauri::async_runtime::spawn_blocking(move || indexer::scan(&cfg))
-        .await
-        .unwrap_or_else(|_| indexer::ScanResult {
-            files: std::collections::BTreeMap::new(),
-            skipped: vec!["스캔 스레드 오류".to_string()],
-        })
+    store::load_index(&cfg)
+}
+
+#[tauri::command]
+async fn start_scan(app: AppHandle) {
+    let cfg = store::load_config();
+    let result = tauri::async_runtime::spawn_blocking({
+        let app2 = app.clone();
+        move || indexer::scan(&cfg, &app2)
+    }).await.unwrap_or_else(|_| ScanResult {
+        files: BTreeMap::new(),
+        skipped: vec!["스캔 스레드 오류".to_string()],
+    });
+    let cfg = store::load_config();
+    let _ = store::save_index(&cfg, &result);
+    let _ = app.emit("scan-done", result);
 }
 
 #[tauri::command]
@@ -75,8 +86,10 @@ fn copy_text(text: String) -> Result<(), String> {
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            list_files, open_path, pick_folder,
-            get_config, save_config, get_memos, save_memo, copy_text
+            load_cache, start_scan,
+            open_path, pick_folder,
+            get_config, save_config,
+            get_memos, save_memo, copy_text
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

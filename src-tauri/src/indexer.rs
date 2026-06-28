@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 use chrono::{TimeZone, Local};
+use tauri::Emitter;
 
 const FILETIME_POSIX_OFFSET: i64 = 11_644_473_600;
 
@@ -15,6 +16,13 @@ pub struct RawItem {
     pub path: String,
     /// Unix seconds (not FILETIME)
     pub date_modified: i64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ScanProgress {
+    pub drive: String,
+    pub scanned: u64,
+    pub matched: u64,
 }
 
 /// FILETIME(100ns ticks since 1601) → local date string. Kept for legacy/utility.
@@ -89,61 +97,53 @@ pub struct ScanResult {
     pub skipped: Vec<String>,
 }
 
-pub fn scan(cfg: &crate::store::Config) -> ScanResult {
+pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
     use ntfs_reader::{file_info::FileInfo, mft::Mft, volume::Volume};
 
     let drives = drives_from_paths(&cfg.scan_paths);
     let mut raws: Vec<RawItem> = Vec::new();
     let mut skipped: Vec<String> = Vec::new();
 
-    let t0 = std::time::Instant::now();
     for drive in &drives {
         let volume_path = format!("\\\\.\\{}", drive);
-        let t_volume = std::time::Instant::now();
         let volume = match Volume::new(&volume_path) {
             Ok(v) => v,
             Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
         };
-        eprintln!("[scan] {} Volume::new: {}ms", drive, t_volume.elapsed().as_millis());
-        let t_mft = std::time::Instant::now();
         let mft = match Mft::new(volume) {
             Ok(m) => m,
             Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
         };
-        eprintln!("[scan] {} Mft::new: {}ms", drive, t_mft.elapsed().as_millis());
-        let t_vol = std::time::Instant::now();
-        let mut total = 0u64;
+        let mut scanned = 0u64;
         let mut matched = 0u64;
         let mut cache = ntfs_reader::file_info::VecCache::default();
         for file in mft.files() {
-            total += 1;
+            scanned += 1;
             if file.is_directory() { continue; }
-            // 경로 재구성(비쌈) 전에 확장자로 먼저 걸러낸다
             let name = match file.get_best_file_name(&mft) {
                 Some(n) => n.to_string(),
                 None => continue,
             };
             if !ext_matches(&name, &cfg.extensions) { continue; }
-            // 확장자 통과한 파일만 전체 경로 재구성
             let info = FileInfo::with_cache(&mft, &file, &mut cache);
             let raw_path = info.path.to_string_lossy().to_string();
-            // ntfs_reader는 \\.\D:\folder\file 형태로 반환 → D:\folder\file 로 정규화
-            let full_path = raw_path
-                .strip_prefix("\\\\.\\")
-                .unwrap_or(&raw_path)
-                .to_string();
+            let full_path = raw_path.strip_prefix("\\\\.\\").unwrap_or(&raw_path).to_string();
             if !path_matches(&full_path, &cfg.scan_paths) { continue; }
-            let unix_secs = info.modified
-                .map(|odt| odt.unix_timestamp())
-                .unwrap_or(0);
+            let unix_secs = info.modified.map(|odt| odt.unix_timestamp()).unwrap_or(0);
             matched += 1;
             raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
+
+            if scanned % 10_000 == 0 {
+                let _ = app.emit("scan-progress", ScanProgress {
+                    drive: drive.clone(), scanned, matched,
+                });
+            }
         }
-        eprintln!("[scan] {} 완료: {}ms, 전체 {}개 중 매칭 {}개",
-            drive, t_vol.elapsed().as_millis(), total, matched);
+        let _ = app.emit("scan-progress", ScanProgress {
+            drive: drive.clone(), scanned, matched,
+        });
     }
 
-    eprintln!("[scan] 전체 완료: {}ms, 결과 {}개", t0.elapsed().as_millis(), raws.len());
     ScanResult { files: group_by_date(raws), skipped }
 }
 
