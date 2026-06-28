@@ -189,19 +189,6 @@ mod tests {
     // --- filetime_to_date ---
     #[test]
     #[ignore]
-    fn scan_bench_mft() {
-        let cfg = crate::store::load_config();
-        println!("scan_paths: {:?}", cfg.scan_paths);
-        let t = std::time::Instant::now();
-        let result = super::scan(&cfg);
-        let elapsed = t.elapsed().as_millis();
-        let total: usize = result.files.values().map(|v| v.len()).sum();
-        println!("[MFT] 완료: {}ms, 날짜 {}개, 파일 {}개, skipped: {:?}",
-            elapsed, result.files.len(), total, result.skipped);
-    }
-
-    #[test]
-    #[ignore]
     fn scan_bench_walkdir() {
         let cfg = crate::store::load_config();
         println!("scan_paths: {:?}", cfg.scan_paths);
