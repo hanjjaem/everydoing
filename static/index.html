@@ -328,7 +328,7 @@
           <div id="monthNav"></div>
         </div>
         <div class="side-sec">
-          <div class="side-title">스캔 폴더 <button id="manageFolders">관리</button></div>
+          <div class="side-title">스캔 폴더 <span style="display:flex;gap:6px;"><button id="manageFolders">관리</button><button id="refreshScan">↺</button></span></div>
           <div id="sideFolders"></div>
         </div>
         <div class="side-sec">
@@ -351,6 +351,12 @@
           <input id="search" type="text" placeholder="파일명 검색">
         </div>
         <div id="msg"></div>
+        <div id="progress-wrap" style="display:none; padding: 8px 22px 0;">
+          <div style="font-size:13px; color:#555; margin-bottom:4px;" id="progress-label">스캔 중...</div>
+          <div style="background:#e0e0e0; border-radius:4px; height:6px; width:100%;">
+            <div id="progress-bar" style="background:#1E6FE8; height:6px; border-radius:4px; width:0%; transition:width 0.3s;"></div>
+          </div>
+        </div>
         <div id="cal">
           <div id="weekhead">
             <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>

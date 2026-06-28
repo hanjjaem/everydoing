@@ -1,4 +1,5 @@
 const invoke = window.__TAURI__.core.invoke;
+const listen = window.__TAURI__.event.listen;
 
 let data = {};
 let cur = new Date();
@@ -91,21 +92,56 @@ async function load() {
     return;
   }
 
-  msg.textContent = "인덱싱 중...";
-  animateNext = true;
-  try {
-    const result = await invoke("list_files");
-    data = result.files;
+  // 캐시 먼저 시도
+  const cached = await invoke("load_cache").catch(() => null);
+  if (cached) {
+    data = cached.files || {};
+    msg.textContent = "";
+    animateNext = true;
+    renderAll();
+    return;
+  }
+
+  // 캐시 없으면 스캔 시작
+  await startScan();
+}
+
+async function startScan() {
+  const msg = document.getElementById("msg");
+  const wrap = document.getElementById("progress-wrap");
+  const bar = document.getElementById("progress-bar");
+  const label = document.getElementById("progress-label");
+
+  msg.textContent = "";
+  wrap.style.display = "block";
+  bar.style.width = "0%";
+  label.textContent = "스캔 준비 중...";
+
+  const unlistenProgress = await listen("scan-progress", (e) => {
+    const { drive, scanned, matched } = e.payload;
+    label.textContent = `${drive} 스캔 중... ${scanned.toLocaleString()}개 확인 (찾은 파일: ${matched})`;
+    // indeterminate 애니메이션 효과 (파일 수 기반 증가)
+    const pct = Math.min(95, (scanned / 10000) % 100);
+    bar.style.width = pct + "%";
+  });
+
+  const unlistenDone = await listen("scan-done", (e) => {
+    unlistenProgress();
+    unlistenDone();
+    wrap.style.display = "none";
+    bar.style.width = "0%";
+    const result = e.payload;
+    data = result.files || {};
     if (result.skipped && result.skipped.length > 0) {
-      msg.textContent = "건너뛴 드라이브: " + result.skipped.join(", ") + " (NTFS가 아니거나 읽을 수 없음)";
+      msg.textContent = "건너뛴 드라이브: " + result.skipped.join(", ");
     } else {
       msg.textContent = "";
     }
-  } catch (e) {
-    msg.textContent = "파일 스캔 실패: " + e;
-    data = {};
-  }
-  renderAll();
+    animateNext = true;
+    renderAll();
+  });
+
+  await invoke("start_scan");
 }
 
 function key(y, m, d) {
@@ -495,12 +531,14 @@ async function savePaths() {
     document.getElementById("panelMsg").textContent = e;
     return;
   }
+  scanPaths = editPaths.slice();
   closePanel();
-  load();
+  await startScan();
 }
 
 document.getElementById("settings").onclick = openPanel;
 document.getElementById("manageFolders").onclick = openPanel;
+document.getElementById("refreshScan").onclick = startScan;
 document.getElementById("addPath").onclick = addPath;
 document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
