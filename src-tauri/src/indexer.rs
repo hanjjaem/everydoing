@@ -22,6 +22,7 @@ pub struct RawItem {
 pub struct ScanProgress {
     pub drive: String,
     pub scanned: u64,
+    pub total: u64,
     pub matched: u64,
 }
 
@@ -114,6 +115,7 @@ pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
             Ok(m) => m,
             Err(e) => { skipped.push(format!("{}: {}", drive, e)); continue; }
         };
+        let total = mft.max_record;
         let mut scanned = 0u64;
         let mut matched = 0u64;
         let mut cache = ntfs_reader::file_info::VecCache::default();
@@ -135,12 +137,12 @@ pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
 
             if scanned % 10_000 == 0 {
                 let _ = app.emit("scan-progress", ScanProgress {
-                    drive: drive.clone(), scanned, matched,
+                    drive: drive.clone(), scanned, total, matched,
                 });
             }
         }
         let _ = app.emit("scan-progress", ScanProgress {
-            drive: drive.clone(), scanned, matched,
+            drive: drive.clone(), scanned, total, matched,
         });
     }
 
@@ -148,15 +150,26 @@ pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
 }
 
 pub fn scan_walk(cfg: &crate::store::Config) -> ScanResult {
-    let t0 = std::time::Instant::now();
+    scan_walk_inner(cfg, None)
+}
+
+pub fn scan_walk_with_progress(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
+    scan_walk_inner(cfg, Some(app))
+}
+
+fn scan_walk_inner(cfg: &crate::store::Config, app: Option<&tauri::AppHandle>) -> ScanResult {
     let mut raws: Vec<RawItem> = Vec::new();
+    let mut matched = 0u64;
 
     for scan_path in &cfg.scan_paths {
-        let t_path = std::time::Instant::now();
-        let mut count = 0u64;
         for entry in walkdir::WalkDir::new(scan_path)
             .follow_links(false)
             .into_iter()
+            .filter_entry(|e| {
+                // 숨김 폴더(.git, .worktrees 등) 건너뜀
+                let name = e.file_name().to_string_lossy();
+                !(e.file_type().is_dir() && name.starts_with('.'))
+            })
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
@@ -172,19 +185,53 @@ pub fn scan_walk(cfg: &crate::store::Config) -> ScanResult {
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
             let full_path = path.to_string_lossy().to_string();
-            count += 1;
+            matched += 1;
             raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
+            if let Some(a) = app {
+                if matched % 50 == 0 {
+                    let _ = a.emit("scan-progress", ScanProgress {
+                        drive: scan_path.clone(), scanned: matched, total: 0, matched,
+                    });
+                }
+            }
         }
-        eprintln!("[walkdir] {} 완료: {}ms, {}개", scan_path, t_path.elapsed().as_millis(), count);
     }
 
-    eprintln!("[walkdir] 전체: {}ms, {}개", t0.elapsed().as_millis(), raws.len());
     ScanResult { files: group_by_date(raws), skipped: vec![] }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- scan_walk ---
+    #[test]
+    fn scan_walk_finds_files_in_folder() {
+        use crate::store::Config;
+        let cfg = Config {
+            scan_paths: vec!["D:\\동구_공모전".to_string()],
+            extensions: vec!["pdf".to_string(), "hwp".to_string(), "docx".to_string()],
+        };
+        let result = scan_walk(&cfg);
+        let total: usize = result.files.values().map(|v| v.len()).sum();
+        println!("[test] 날짜 {}개, 파일 {}개", result.files.len(), total);
+        for (date, files) in &result.files {
+            for f in files { println!("  {} — {}", date, f.name); }
+        }
+        assert!(total > 0, "파일이 하나도 안 나왔다 — 경로나 확장자 확인 필요");
+    }
+
+    #[test]
+    fn scan_walk_empty_for_wrong_ext() {
+        use crate::store::Config;
+        let cfg = Config {
+            scan_paths: vec!["D:\\동구_공모전".to_string()],
+            extensions: vec!["xyz_never_exists".to_string()],
+        };
+        let result = scan_walk(&cfg);
+        let total: usize = result.files.values().map(|v| v.len()).sum();
+        assert_eq!(total, 0, "없는 확장자인데 파일이 나왔다");
+    }
 
     // --- filetime_to_date ---
     #[test]

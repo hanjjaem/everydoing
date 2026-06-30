@@ -41,6 +41,12 @@ pub fn validate_config(
 pub struct Config {
     pub scan_paths: Vec<String>,
     pub extensions: Vec<String>,
+    #[serde(default)]
+    pub openai_api_key: String,
+    /// AI 요약 기능 사용 여부. 기본값 false(꺼짐).
+    /// 이 값이 false면 파일명이 외부(OpenAI)로 전송되지 않는다.
+    #[serde(default)]
+    pub ai_summary_enabled: bool,
 }
 
 impl Default for Config {
@@ -49,6 +55,8 @@ impl Default for Config {
             scan_paths: vec![],
             extensions: ["hwp","hwpx","doc","docx","xls","xlsx","ppt","pptx","pdf"]
                 .iter().map(|s| s.to_string()).collect(),
+            openai_api_key: String::new(),
+            ai_summary_enabled: false,
         }
     }
 }
@@ -63,6 +71,34 @@ pub fn data_dir() -> PathBuf {
 fn config_path() -> PathBuf { let mut p = data_dir(); p.push("config.json"); p }
 fn memos_path() -> PathBuf { let mut p = data_dir(); p.push("memos.json"); p }
 fn index_path() -> PathBuf { let mut p = data_dir(); p.push("index.json"); p }
+fn summaries_path() -> PathBuf { let mut p = data_dir(); p.push("summaries.json"); p }
+
+pub fn load_summaries() -> BTreeMap<String, String> {
+    match std::fs::read_to_string(summaries_path()) {
+        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
+        Err(_) => BTreeMap::new(),
+    }
+}
+
+pub fn save_summaries(summaries: &BTreeMap<String, String>) -> Result<(), String> {
+    let s = serde_json::to_string_pretty(summaries).map_err(|e| e.to_string())?;
+    std::fs::write(summaries_path(), s).map_err(|e| e.to_string())
+}
+
+fn monthly_summaries_path() -> PathBuf { let mut p = data_dir(); p.push("monthly_summaries.json"); p }
+
+/// 월별 총평(키 "YYYY-MM" → 줄글 텍스트) 로드.
+pub fn load_monthly_summaries() -> BTreeMap<String, String> {
+    match std::fs::read_to_string(monthly_summaries_path()) {
+        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
+        Err(_) => BTreeMap::new(),
+    }
+}
+
+pub fn save_monthly_summaries(m: &BTreeMap<String, String>) -> Result<(), String> {
+    let s = serde_json::to_string_pretty(m).map_err(|e| e.to_string())?;
+    std::fs::write(monthly_summaries_path(), s).map_err(|e| e.to_string())
+}
 
 #[derive(Serialize, Deserialize)]
 struct IndexCache {
@@ -174,6 +210,7 @@ mod tests {
         let cfg = Config {
             scan_paths: vec!["D:\\test".to_string()],
             extensions: vec!["pdf".to_string()],
+            ..Default::default()
         };
         let mut files = BTreeMap::new();
         files.insert("2026-06-29".to_string(), vec![FileItem {
@@ -193,10 +230,12 @@ mod tests {
         let cfg_a = Config {
             scan_paths: vec!["D:\\a".to_string()],
             extensions: vec!["pdf".to_string()],
+            ..Default::default()
         };
         let cfg_b = Config {
             scan_paths: vec!["D:\\b".to_string()],
             extensions: vec!["pdf".to_string()],
+            ..Default::default()
         };
         let result = ScanResult { files: BTreeMap::new(), skipped: vec![] };
         save_index(&cfg_a, &result).unwrap();

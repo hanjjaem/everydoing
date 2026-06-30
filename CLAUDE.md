@@ -30,6 +30,14 @@
   활동량을 히트맵 전체 칠로 표현하지 않음(메모 가독성·"경고" 색감 때문에 폐기).
 - 메모는 `%APPDATA%\EveryDoing\memos.json`에 날짜별 한 줄로 로컬 저장.
   외부 AI/네트워크 없이 사용자가 직접 입력(프라이버시·로컬 전용 원칙 유지).
+- AI 요약(OpenAI)은 **선택 기능이며 기본 꺼짐**. 외부 배포 대비 전송 안전장치 패턴 적용:
+  - opt-in: `Config.ai_summary_enabled`(기본 false). 백엔드 `generate_summaries`가
+    꺼져 있으면 전송 자체를 거부 → 끄면 외부 통신 0.
+  - BYOK: 사용자가 자기 OpenAI 키 입력, `config.json`에 로컬 저장(서버 미경유).
+  - on-demand: 로드/스캔 시 자동 전송하지 않음. 사이드바 'AI 요약 생성' 버튼 +
+    매번 confirm 동의 시에만 전송. 전송 대상은 파일명뿐(파일 내용 아님).
+  - 설정 패널에 전송 고지 문구 노출.
+  - TODO(여력 시): 외부 전송 없는 로컬 요약 경로(예: TextRank류) 추가.
 - 레거시 Python 코드(Everything 시절)는 `legacy/`에 보관.
 
 ## 자주 막히는 것들 (시행착오 메모)

@@ -9,14 +9,39 @@ let memos = {};
 let animateNext = true;
 let scanPaths = [];
 let monthStats = { activeDays: 0, totalFiles: 0, busyDate: null, busyCount: 0 };
+let scanning = false;
+let loaded = false;
+let summaries = {};
+let monthlySummaries = {};
+let fileMenuPath = null;
+
+function showFileMenu(e, path, fullName) {
+  e.stopPropagation();
+  fileMenuPath = path;
+  const menu = document.getElementById("file-menu");
+  document.getElementById("file-menu-name").textContent = fullName;
+  menu.style.display = "flex";
+  const r = e.currentTarget.getBoundingClientRect();
+  let top = r.bottom + 4;
+  let left = r.left;
+  if (left + 120 > window.innerWidth) left = window.innerWidth - 124;
+  if (top + 80 > window.innerHeight) top = r.top - 84;
+  menu.style.top = top + "px";
+  menu.style.left = left + "px";
+}
+
+function hideFileMenu() {
+  document.getElementById("file-menu").style.display = "none";
+  fileMenuPath = null;
+}
 
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const LEGEND = [
-  { color: "#1E6FE8", label: "한", name: "한글 (hwp)" },
-  { color: "#2B579A", label: "W", name: "워드 (doc)" },
-  { color: "#217346", label: "X", name: "엑셀 (xls)" },
-  { color: "#C43E1C", label: "P", name: "PPT (ppt)" },
-  { color: "#E5252A", label: "F", name: "PDF" },
+  { color: "#1E6FE8", label: "HWP", name: "한글 (hwp)" },
+  { color: "#2B579A", label: "DOC", name: "워드 (doc)" },
+  { color: "#217346", label: "XLS", name: "엑셀 (xls)" },
+  { color: "#C43E1C", label: "PPT", name: "PPT (ppt)" },
+  { color: "#E5252A", label: "PDF", name: "PDF" },
 ];
 
 function filterFiles(files, q) {
@@ -38,6 +63,11 @@ const EXT_TYPE = {
   pptx: { color: "#C43E1C", label: "P" },
   pdf:  { color: "#E5252A", label: "F" },
 };
+
+function badgeFor(ext) {
+  const MAP = { hwp:"HWP", hwpx:"HWP", doc:"DOC", docx:"DOC", xls:"XLS", xlsx:"XLS", ppt:"PPT", pptx:"PPT", pdf:"PDF" };
+  return MAP[ext] || ext.slice(0, 3).toUpperCase();
+}
 
 function extOf(name) {
   const i = (name || "").lastIndexOf(".");
@@ -64,10 +94,10 @@ function formatDayLabel(dateStr, today) {
   const that = new Date(y, m - 1, d);
   const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const diffDays = Math.round((base - that) / 86400000);
-  const md = (m) + "월 " + (d) + "일";
+  const md = m + "월 " + d + "일 " + WEEKDAYS[that.getDay()];
   if (diffDays === 0) return "오늘 · " + md;
   if (diffDays === 1) return "어제 · " + md;
-  return md + " · " + WEEKDAYS[that.getDay()];
+  return md;
 }
 
 function buildGroups(data, y, m, q) {
@@ -80,11 +110,16 @@ function buildGroups(data, y, m, q) {
 }
 
 async function load() {
+  if (loaded) return;
+  loaded = true;
+  console.log("[load] 시작");
   const msg = document.getElementById("msg");
   try { memos = await invoke("get_memos"); } catch (_) { memos = {}; }
   try { scanPaths = (await invoke("get_config")).scan_paths || []; } catch (_) { scanPaths = []; }
+  console.log("[load] scan_paths:", scanPaths);
 
   if (scanPaths.length === 0) {
+    console.log("[load] scan_paths 없음 → 설정 패널 오픈");
     msg.textContent = "";
     data = {};
     renderAll();
@@ -92,46 +127,69 @@ async function load() {
     return;
   }
 
-  // 캐시 먼저 시도
-  const cached = await invoke("load_cache").catch(() => null);
+  const cached = await invoke("load_cache").catch((e) => { console.error("[load] load_cache 오류:", e); return null; });
+  console.log("[load] 캐시:", cached ? `있음 (날짜 ${Object.keys(cached.files||{}).length}개)` : "없음");
   if (cached) {
     data = cached.files || {};
+    summaries = await invoke("get_summaries").catch(() => ({}));
+    monthlySummaries = await invoke("get_monthly_summaries").catch(() => ({}));
     msg.textContent = "";
     animateNext = true;
     renderAll();
+    // 자동 생성하지 않음. AI 요약은 사용자가 '_AI 요약 생성_' 버튼을 눌렀을 때만 전송된다.
     return;
   }
 
-  // 캐시 없으면 스캔 시작
+  console.log("[load] 캐시 없음 → startScan 호출");
   await startScan();
 }
 
 async function startScan() {
+  if (scanning) return;
+  scanning = true;
   const msg = document.getElementById("msg");
   const wrap = document.getElementById("progress-wrap");
-  const bar = document.getElementById("progress-bar");
   const label = document.getElementById("progress-label");
+  const sub = document.getElementById("progress-sub");
+  const elapsed = document.getElementById("progress-elapsed");
 
   msg.textContent = "";
   wrap.style.display = "block";
-  bar.style.width = "0%";
   label.textContent = "스캔 준비 중...";
+  sub.textContent = "";
+  elapsed.textContent = "";
+  const bar = document.getElementById("progress-bar");
+  bar.style.animation = "";
+  bar.style.width = "0%";
+  bar.style.transition = "";
+  bar.classList.add("pulse");
+
+  const startTime = Date.now();
+  const timer = setInterval(() => {
+    const secs = Math.floor((Date.now() - startTime) / 1000);
+    elapsed.textContent = `${secs}초째 진행 중`;
+  }, 1000);
 
   const unlistenProgress = await listen("scan-progress", (e) => {
-    const { drive, scanned, matched } = e.payload;
-    label.textContent = `${drive} 스캔 중... ${scanned.toLocaleString()}개 확인 (찾은 파일: ${matched})`;
-    // indeterminate 애니메이션 효과 (파일 수 기반 증가)
-    const pct = Math.min(95, (scanned / 10000) % 100);
-    bar.style.width = pct + "%";
+    const { drive, scanned, total, matched } = e.payload;
+    label.textContent = `${drive} 스캔 중`;
+    sub.textContent = `파일 ${matched.toLocaleString()}개 발견`;
+    if (total > 0) {
+      bar.classList.remove("pulse");
+      bar.style.transition = "width 0.4s ease";
+      bar.style.width = Math.round((scanned / total) * 100) + "%";
+    }
   });
 
-  const unlistenDone = await listen("scan-done", (e) => {
+  const unlistenDone = await listen("scan-done", async (e) => {
+    clearInterval(timer);
     unlistenProgress();
     unlistenDone();
+    scanning = false;
     wrap.style.display = "none";
-    bar.style.width = "0%";
     const result = e.payload;
     data = result.files || {};
+    const totalFiles = Object.values(data).reduce((s, arr) => s + arr.length, 0);
     if (result.skipped && result.skipped.length > 0) {
       msg.textContent = "건너뛴 드라이브: " + result.skipped.join(", ");
     } else {
@@ -139,9 +197,13 @@ async function startScan() {
     }
     animateNext = true;
     renderAll();
+    // 스캔 후 자동 전송하지 않음. AI 요약은 사용자가 명시적으로 생성할 때만 동작.
+    summaries = await invoke("get_summaries").catch(() => summaries);
+    monthlySummaries = await invoke("get_monthly_summaries").catch(() => monthlySummaries);
+    renderAll();
   });
 
-  await invoke("start_scan");
+  await invoke("start_scan").catch((e) => console.error("[startScan] invoke 오류:", e));
 }
 
 function key(y, m, d) {
@@ -150,7 +212,7 @@ function key(y, m, d) {
 
 function render() {
   const y = cur.getFullYear(), m = cur.getMonth();
-  document.getElementById("yearLabel").textContent = y;
+  document.getElementById("yearLabel").textContent = y + "년";
   document.getElementById("label").textContent = (m + 1) + "월";
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
@@ -180,37 +242,87 @@ function render() {
       activeDays++; totalFiles += files.length;
       if (files.length > busyCount) { busyCount = files.length; busyDate = d; }
       cell.classList.add("has-files");
-      const act = document.createElement("div");
-      act.className = "act";
-      act.onclick = (e) => {
+      const listEl = document.createElement("div");
+      listEl.className = "file-box";
+      listEl.title = "클릭: 파일 목록 열기";
+      listEl.onclick = (e) => {
         e.stopPropagation();
         const ae = document.activeElement;
         if (ae && ae.classList.contains("memo-edit")) ae.blur();
         selectDate(cellKey);
       };
-      const { chips, plus } = typeChips(files);
-      const chipsEl = document.createElement("span");
-      chipsEl.className = "act-chips";
-      chips.forEach(c => {
-        const chip = document.createElement("span");
-        chip.className = "type-chip";
-        chip.style.background = c.color;
-        chip.textContent = c.label;
-        chipsEl.appendChild(chip);
+      files.slice(0, 2).forEach(f => {
+        const row = document.createElement("div");
+        row.className = "file-row";
+        row.title = f.name;
+        const ext = extOf(f.name);
+        const badge = document.createElement("span");
+        badge.className = "file-badge";
+        badge.style.background = chipFor(ext).color;
+        badge.textContent = badgeFor(ext);
+        const name = document.createElement("span");
+        name.className = "file-row-name";
+        const stem = f.name.replace(/\.[^.]+$/, "");
+        name.textContent = stem.length > 10 ? stem.slice(0, 10) + "…" : stem;
+        row.appendChild(badge);
+        row.appendChild(name);
+        row.onclick = (e) => { e.stopPropagation(); showFileMenu(e, f.path, f.name); };
+        listEl.appendChild(row);
       });
-      if (plus) {
-        const more = document.createElement("span");
-        more.className = "more";
-        more.textContent = "+";
-        chipsEl.appendChild(more);
+      if (files.length > 2) {
+        const more = document.createElement("div");
+        more.className = "file-more";
+        more.textContent = `+${files.length - 2} 더보기`;
+        more.onclick = (e) => { e.stopPropagation(); selectDate(cellKey); };
+        listEl.appendChild(more);
       }
-      act.appendChild(chipsEl);
+      cell.appendChild(listEl);
 
-      const countEl = document.createElement("span");
-      countEl.className = "act-count";
-      countEl.textContent = files.length;
-      act.appendChild(countEl);
-      cell.appendChild(act);
+      if (summaries[cellKey]) {
+        const sumEl = document.createElement("div");
+        sumEl.className = "day-summary";
+        sumEl.title = "클릭: 타임라인 열기";
+
+        const sumText = document.createElement("span");
+        sumText.className = "day-summary-text";
+        sumText.textContent = summaries[cellKey];
+        sumEl.appendChild(sumText);
+
+        const editBtn = document.createElement("span");
+        editBtn.className = "day-summary-edit";
+        editBtn.textContent = "✏";
+        editBtn.title = "편집";
+        sumEl.appendChild(editBtn);
+
+        sumEl.onclick = (e) => { e.stopPropagation(); selectDate(cellKey); };
+
+        const startEdit = (e) => {
+          e.stopPropagation();
+          const input = document.createElement("input");
+          input.className = "day-summary-input";
+          input.value = summaries[cellKey] || "";
+          sumEl.replaceWith(input);
+          input.focus();
+          input.select();
+          const commit = async () => {
+            const val = input.value.trim();
+            if (val !== summaries[cellKey]) {
+              summaries[cellKey] = val;
+              await invoke("save_summary", { date: cellKey, text: val }).catch(() => {});
+            }
+            render();
+          };
+          input.onblur = commit;
+          input.onkeydown = (ev) => {
+            if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
+            if (ev.key === "Escape") { input.value = summaries[cellKey] || ""; input.blur(); }
+          };
+        };
+        editBtn.onclick = startEdit;
+        sumEl.ondblclick = startEdit;
+
+        cell.appendChild(sumEl);
+      }
     }
     attachMemo(cell, cellKey);
     grid.appendChild(cell);
@@ -260,6 +372,142 @@ function renderAll() {
   render();
   renderSidebar();
   renderTimeline();
+  renderMonthSummary();
+}
+
+function monthKey(y, m) {
+  return y + "-" + String(m + 1).padStart(2, "0");
+}
+
+// 너무 일반적인 토큰(문서 유형·동작어)은 키워드에서 제외
+const KW_STOP = new Set([
+  "및","관련","최종","수정","수정본","사본","복사본","붙임","별첨","첨부","최종본","초안",
+  "버전","자료","파일","문서","결과","보고","보고서","작성","검토","참고","서식","양식",
+  "공문","제출","요청","현황","목록","내용","기타","담당","부서","원본","결재","계획서"
+]);
+
+// 그 달 파일명에서 자주 나온 키워드 추출(로컬, 외부 전송 없음). [단어, 빈도] 배열 반환.
+function monthKeywords(mk, limit = 10) {
+  const freq = {};
+  for (const dateKey in data) {
+    if (!dateKey.startsWith(mk + "-")) continue;
+    for (const f of (data[dateKey] || [])) {
+      let name = f.name || "";
+      const dot = name.lastIndexOf(".");
+      if (dot > 0) name = name.slice(0, dot);
+      const seen = new Set();
+      for (const t of name.split(/[^가-힣A-Za-z]+/)) {
+        if (t.length < 2 || KW_STOP.has(t) || seen.has(t)) continue;
+        seen.add(t);                       // 파일당 1회만 집계(문서 빈도)
+        freq[t] = (freq[t] || 0) + 1;
+      }
+    }
+  }
+  let list = Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const strong = list.filter(([, c]) => c >= 2);
+  if (strong.length >= 3) list = strong;   // 2회 이상만, 너무 적으면 전체에서
+  return list.slice(0, limit);
+}
+
+function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+// 본문 안의 키워드를 인라인 강조 칩으로 감싸 렌더(별도 줄 없이 문장 안에서 강조).
+function highlightKeywords(container, text, keywords) {
+  container.innerHTML = "";
+  const words = (keywords || []).filter(w => w && w.length >= 2);
+  if (!words.length) { container.textContent = text; return; }
+  const re = new RegExp("(" + words.slice().sort((a, b) => b.length - a.length).map(escapeReg).join("|") + ")", "g");
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) container.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const span = document.createElement("span");
+    span.className = "kw";
+    span.textContent = m[0];
+    container.appendChild(span);
+    last = m.index + m[0].length;
+    if (m.index === re.lastIndex) re.lastIndex++;
+  }
+  if (last < text.length) container.appendChild(document.createTextNode(text.slice(last)));
+}
+
+const IC = {
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>',
+  fire: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>'
+};
+
+function renderMonthSummary() {
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const title = document.getElementById("monthModalTitle");
+  if (title) title.textContent = y + "년 " + (m + 1) + "월";
+  const body = document.getElementById("monthSummaryBody");
+  if (!body) return;
+
+  const mk = monthKey(y, m);
+
+  // 그 달의 집계(검색 필터와 무관하게 원본 data 기준)
+  let activeDays = 0, total = 0, busyDate = null, busyCount = 0;
+  const typeCount = {};
+  for (const dateKey in data) {
+    if (!dateKey.startsWith(mk + "-")) continue;
+    const files = data[dateKey] || [];
+    if (!files.length) continue;
+    activeDays++; total += files.length;
+    const day = Number(dateKey.split("-")[2]);
+    if (files.length > busyCount) { busyCount = files.length; busyDate = day; }
+    for (const f of files) {
+      const ext = extOf(f.name);
+      const label = badgeFor(ext);
+      if (!typeCount[label]) typeCount[label] = { count: 0, color: chipFor(ext).color };
+      typeCount[label].count++;
+    }
+  }
+
+  const statsEl = document.getElementById("mmStats");
+  if (statsEl) {
+    if (!total) {
+      statsEl.innerHTML = '<div class="mm-empty">이 달의 기록이 없습니다.</div>';
+    } else {
+      const types = Object.entries(typeCount).sort((a, b) => b[1].count - a[1].count);
+      const bar = types.map(([l, i]) =>
+        `<span class="mm-seg" style="width:${(i.count / total * 100).toFixed(2)}%;background:${i.color}" title="${l} ${i.count}"></span>`).join("");
+      const chips = types.map(([l, i]) =>
+        `<span class="mm-tchip"><span class="mm-dot" style="background:${i.color}"></span>${l} <b>${i.count}</b></span>`).join("");
+      const busyTxt = busyDate ? `${m + 1}월 ${busyDate}일` : "—";
+      statsEl.innerHTML =
+        `<div class="mm-tiles">
+          <div class="mm-tile">
+            <div class="mm-ic">${IC.cal}</div>
+            <div class="mm-tt"><div class="mm-tv">${activeDays}</div><div class="mm-tl">활동일</div></div>
+          </div>
+          <div class="mm-tile">
+            <div class="mm-ic">${IC.doc}</div>
+            <div class="mm-tt"><div class="mm-tv">${total}</div><div class="mm-tl">문서</div></div>
+          </div>
+          <div class="mm-tile mm-tile-wide mm-tile-busy">
+            <div class="mm-tile-l">
+              <div class="mm-ic mm-ic-accent">${IC.fire}</div>
+              <div class="mm-tt"><div class="mm-tv">${busyCount}<span class="mm-tu">개</span></div><div class="mm-tl">가장 바쁜 날</div></div>
+            </div>
+            <div class="mm-busy-date">${busyTxt}</div>
+          </div>
+        </div>
+        <div class="mm-bar">${bar}</div>
+        <div class="mm-tchips">${chips}</div>`;
+    }
+  }
+
+  const kwords = monthKeywords(mk, 14).map(e => e[0]);
+  const text = monthlySummaries[mk];
+  if (text && text.trim()) {
+    body.className = "ms-body";
+    highlightKeywords(body, text, kwords);
+  } else {
+    body.className = "ms-body empty";
+    body.textContent = total
+      ? "아직 이 달의 AI 총평이 없습니다. 아래 ‘AI 월간 총평 생성’을 누르면 만들어집니다."
+      : "기록이 없어 생성할 내용이 없습니다.";
+  }
 }
 
 function renderSidebar() {
@@ -397,9 +645,48 @@ function renderTimeline() {
     const grp = document.createElement("div");
     grp.className = "tl-group";
     grp.dataset.date = g.date;
+    if (selectedDate && g.date !== selectedDate) {
+      const diff = Math.abs(
+        (new Date(g.date) - new Date(selectedDate)) / 86400000
+      );
+      grp.classList.add(diff <= 1 ? "tl-near" : "tl-far");
+    }
     const h = document.createElement("div");
     h.className = "tl-date";
-    h.textContent = formatDayLabel(g.date, today);
+    const dateLabel = formatDayLabel(g.date, today);
+    const summary = summaries[g.date];
+    const datePart = document.createElement("span");
+    datePart.textContent = summary ? dateLabel + ", " : dateLabel;
+    h.appendChild(datePart);
+    if (summary) {
+      const sumSpan = document.createElement("span");
+      sumSpan.className = "tl-summary";
+      sumSpan.textContent = summary;
+      sumSpan.title = "클릭: 편집";
+      sumSpan.onclick = (e) => {
+        e.stopPropagation();
+        const gDate = g.date;
+        const input = document.createElement("input");
+        input.className = "tl-summary-input";
+        input.value = summaries[gDate] || "";
+        sumSpan.replaceWith(input);
+        input.focus(); input.select();
+        const commit = async () => {
+          const val = input.value.trim();
+          if (val !== summaries[gDate]) {
+            summaries[gDate] = val;
+            await invoke("save_summary", { date: gDate, text: val }).catch(() => {});
+          }
+          renderTimeline();
+        };
+        input.onblur = commit;
+        input.onkeydown = (ev) => {
+          if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
+          if (ev.key === "Escape") { input.value = summaries[gDate] || ""; input.blur(); }
+        };
+      };
+      h.appendChild(sumSpan);
+    }
     grp.appendChild(h);
     g.files.forEach(f => {
       const row = document.createElement("div");
@@ -424,6 +711,7 @@ function renderTimeline() {
 function selectDate(dateStr) {
   selectedDate = (selectedDate === dateStr) ? null : dateStr;
   render();
+  renderTimeline();
   if (selectedDate) {
     document.body.setAttribute("data-timeline", "open");
     const grp = document.querySelector('#timeline .tl-group[data-date="' + selectedDate + '"]');
@@ -452,7 +740,11 @@ async function openFile(path, mode) {
 
 document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); selectedDate = null; animateNext = true; renderAll(); };
 document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; animateNext = true; renderAll(); };
-window.addEventListener("focus", load);
+window.addEventListener("focus", async () => {
+  if (!loaded) { load(); return; }
+  const result = await invoke("prune_deleted").catch(() => null);
+  if (result) { data = result.files || {}; renderAll(); }
+});
 document.getElementById("search").oninput = (e) => { query = e.target.value; renderAll(); };
 document.getElementById("label").style.cursor = "pointer";
 document.getElementById("label").title = "오늘로";
@@ -509,6 +801,8 @@ async function openPanel() {
   const cfg = await invoke("get_config");
   editPaths = (cfg.scan_paths || []).slice();
   editExts = (cfg.extensions || []).slice();
+  document.getElementById("apiKeyInput").value = cfg.openai_api_key || "";
+  document.getElementById("aiEnabled").checked = !!cfg.ai_summary_enabled;
   renderExts();
   renderPaths();
   document.body.setAttribute("data-settings", "open");
@@ -525,8 +819,10 @@ async function addPath() {
 }
 
 async function savePaths() {
+  const apiKey = document.getElementById("apiKeyInput").value.trim();
+  const aiEnabled = document.getElementById("aiEnabled").checked;
   try {
-    await invoke("save_config", { scanPaths: editPaths, extensions: editExts });
+    await invoke("save_config", { scanPaths: editPaths, extensions: editExts, openaiApiKey: apiKey || null, aiSummaryEnabled: aiEnabled });
   } catch (e) {
     document.getElementById("panelMsg").textContent = e;
     return;
@@ -536,13 +832,80 @@ async function savePaths() {
   await startScan();
 }
 
+// AI 요약 생성 — 명시적 사용자 동작 + 매번 전송 동의 확인.
+async function genSummaries() {
+  let cfg;
+  try { cfg = await invoke("get_config"); } catch (_) { return; }
+  if (!cfg.ai_summary_enabled || !(cfg.openai_api_key || "").trim()) {
+    alert("AI 요약이 꺼져 있거나 API 키가 없습니다.\n설정에서 'AI 요약 사용'을 켜고 OpenAI API 키를 입력하세요.");
+    openPanel();
+    return;
+  }
+  const ok = confirm("최근 90일의 파일명이 OpenAI 서버로 전송됩니다.\n(파일 내용은 전송되지 않습니다.)\n계속할까요?");
+  if (!ok) return;
+  const btn = document.getElementById("genSummaries");
+  const prev = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "생성 중..."; }
+  try {
+    const s = await invoke("generate_summaries");
+    if (s) { summaries = s; renderAll(); }
+  } catch (e) {
+    alert("요약 생성 실패: " + e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prev; }
+  }
+}
+
+function openMonthModal() {
+  renderMonthSummary();
+  document.body.setAttribute("data-month", "open");
+}
+function closeMonthModal() {
+  document.body.removeAttribute("data-month");
+}
+
+// AI 월간 총평 생성 — 명시적 사용자 동작 + 매번 전송 동의 확인.
+async function genMonthSummary() {
+  let cfg;
+  try { cfg = await invoke("get_config"); } catch (_) { return; }
+  if (!cfg.ai_summary_enabled || !(cfg.openai_api_key || "").trim()) {
+    alert("AI 요약이 꺼져 있거나 API 키가 없습니다.\n설정에서 'AI 요약 사용'을 켜고 OpenAI API 키를 입력하세요.");
+    openPanel();
+    return;
+  }
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const ok = confirm((m + 1) + "월의 파일명이 OpenAI 서버로 전송됩니다.\n(파일 내용은 전송되지 않습니다.)\n계속할까요?");
+  if (!ok) return;
+  const btn = document.getElementById("genMonthSummary");
+  const prev = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "생성 중..."; }
+  try {
+    const text = await invoke("generate_monthly_summary", { year: y, month: m + 1 });
+    monthlySummaries[monthKey(y, m)] = text || "";
+    renderMonthSummary();
+  } catch (e) {
+    alert("월간 총평 생성 실패: " + e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prev; }
+  }
+}
+
+document.getElementById("fm-open").onclick = () => { if (fileMenuPath) openFile(fileMenuPath, "file"); hideFileMenu(); };
+document.getElementById("fm-folder").onclick = () => { if (fileMenuPath) openFile(fileMenuPath, "folder"); hideFileMenu(); };
+document.addEventListener("click", hideFileMenu);
+
 document.getElementById("settings").onclick = openPanel;
 document.getElementById("manageFolders").onclick = openPanel;
 document.getElementById("refreshScan").onclick = startScan;
+document.getElementById("genSummaries").onclick = genSummaries;
+document.getElementById("genMonthSummary").onclick = genMonthSummary;
+document.getElementById("openMonthModal").onclick = openMonthModal;
+document.getElementById("monthModalClose").onclick = closeMonthModal;
+document.getElementById("monthModal").onclick = (e) => { if (e.target.id === "monthModal") closeMonthModal(); };
 document.getElementById("addPath").onclick = addPath;
 document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
 document.getElementById("closePanel").onclick = closePanel;
 document.getElementById("scrim").onclick = () => { closePanel(); closeTimeline(); };
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePanel(); closeTimeline(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePanel(); closeTimeline(); closeMonthModal(); } });
 load();

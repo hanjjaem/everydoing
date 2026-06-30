@@ -48,12 +48,12 @@
     border-bottom: 1px solid var(--line);
   }
   .brand {
-    display: inline-flex; align-items: center; gap: 8px;
+    display: inline-flex; align-items: center;
     font-size: 18px; font-weight: 600; letter-spacing: -.025em; color: var(--ink);
   }
   .brand span { color: var(--accent); font-weight: 700; }
   .brand::before {
-    content: ""; width: 22px; height: 22px; border-radius: 7px;
+    content: ""; width: 22px; height: 22px; border-radius: 7px; margin-right: 8px;
     background: var(--accent);
     -webkit-mask: center/16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E");
     mask: center/16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E");
@@ -74,6 +74,10 @@
   .sidebar {
     width: 250px; flex-shrink: 0; overflow-y: auto;
     background: var(--side); border-right: 1px solid var(--line);
+  }
+  .side-brand {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
   }
   .side-sec { padding: 16px 16px; border-bottom: 1px solid var(--line); }
   .side-title {
@@ -133,7 +137,14 @@
   .stat-sub b { color: var(--ink-2); font-weight: 600; }
 
   /* ── 메인 (달력) ───────────────────────── */
-  .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .content { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; isolation: isolate; }
+  .content::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(60% 45% at 50% 58%, rgba(0,102,204,.16), transparent 72%),
+      radial-gradient(42% 36% at 84% 14%, rgba(124,92,222,.12), transparent 70%),
+      radial-gradient(40% 34% at 12% 88%, rgba(0,180,180,.10), transparent 72%);
+  }
   .content-head {
     display: flex; align-items: center; justify-content: space-between;
     gap: 16px; flex-wrap: wrap; padding: 14px 22px; border-bottom: 1px solid var(--line);
@@ -163,43 +174,58 @@
 
   #msg { padding: 10px 22px 0; color: var(--accent); font-size: 13px; }
 
-  #cal { flex: 1; min-height: 0; overflow-y: auto; padding: 0 22px 22px; }
+  #cal { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 0 22px 22px; }
   #weekhead {
-    position: sticky; top: 0; z-index: 2; background: var(--card);
+    position: sticky; top: 0; z-index: 2;
+    background: rgba(223,225,232,.55);
+    backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
     display: grid; grid-template-columns: repeat(7, 1fr);
-    font-size: 12px; font-weight: 600; color: var(--ink-3);
-    letter-spacing: .02em; padding: 14px 0 10px;
+    font-size: 12px; font-weight: 600; color: var(--ink-2);
+    letter-spacing: .02em; padding: 11px 0;
+    border: 1px solid rgba(255,255,255,.5); border-bottom: 1px solid var(--line);
+    border-radius: 12px 12px 0 0;
   }
   #weekhead > div { padding-left: 11px; }
 
   #grid {
+    flex: 1; min-height: min-content;
     display: grid; grid-template-columns: repeat(7, 1fr);
-    gap: 1px; background: var(--line);
-    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    grid-auto-rows: 1fr;
+    gap: 0; background: rgba(255,255,255,.22);
+    backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 12px 12px; overflow: hidden;
+    box-shadow: 0 26px 60px -28px rgba(0,90,200,.38), 0 10px 30px rgba(20,30,60,.08);
   }
   .cell {
-    background-color: var(--card-empty);
+    background-color: rgba(255,255,255,.46);
     min-height: 116px; padding: 10px 11px;
     display: flex; flex-direction: column; gap: 6px; position: relative;
+    box-shadow: inset -1px -1px 0 0 rgba(110,120,145,.22);
   }
-  .cell.has-files { background-color: var(--card); }
+  .cell.has-files { background-color: rgba(255,255,255,.64); }
 
   @media (prefers-reduced-motion: no-preference) {
     .cell.anim { animation: cellIn .45s cubic-bezier(.22,1,.36,1) both; }
   }
   @keyframes cellIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 
-  .daynum { font-size: 14px; font-weight: 400; color: var(--ink-3); line-height: 1; letter-spacing: -.01em; }
-  .has-files .daynum { color: var(--ink); font-weight: 500; }
+  .daynum { font-size: 16px; font-weight: 500; color: var(--ink-3); line-height: 1; letter-spacing: -.02em; }
+  .has-files .daynum { color: var(--ink); font-weight: 600; }
   .cell.today .daynum {
     display: inline-flex; align-items: center; justify-content: center;
     width: 25px; height: 25px; border-radius: 50%;
     background: var(--accent); color: #fff; font-weight: 600; margin: -3px 0 0 -3px;
   }
 
-  .act { position: absolute; top: 10px; right: 11px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .act-count { font-size: 13px; font-weight: 600; line-height: 1; color: var(--ink-2); }
-  .act:hover .act-count { color: var(--accent); }
+  /* 주말 (일=빨강, 토=파랑) — 진짜 달력 느낌 */
+  #weekhead > div:first-child { color: #e5484d; }
+  #weekhead > div:last-child  { color: #2f6bd8; }
+  #grid > .cell:nth-child(7n+1) { background-color: rgba(255,228,228,.40); }   /* 일요일 칸 */
+  #grid > .cell:nth-child(7n)   { background-color: rgba(223,233,253,.40); }   /* 토요일 칸 */
+  #grid > .cell:nth-child(7n+1):not(.today) .daynum { color: #e5484d; }
+  #grid > .cell:nth-child(7n):not(.today) .daynum   { color: #2f6bd8; }
+
   .act-chips { display: flex; align-items: center; }
   .type-chip {
     width: 18px; height: 18px; border-radius: 50%;
@@ -209,7 +235,10 @@
   }
   .act-chips .type-chip:not(:first-child) { margin-left: -6px; }
   .act-chips .more { font-size: 10px; color: var(--ink-3); margin-left: 3px; }
-  .legend-row .type-chip { box-shadow: none; }
+  .legend-row .type-chip {
+    box-shadow: none; width: auto; height: auto; min-width: 30px;
+    border-radius: 4px; padding: 2px 6px; letter-spacing: .02em;
+  }
 
   .memo {
     margin-top: auto; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); cursor: text;
@@ -285,6 +314,35 @@
   }
   .tl-actions button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
   .tl-empty { color: var(--ink-3); font-size: 14px; line-height: 1.7; }
+  .tl-near { opacity: 0.45; transition: opacity .2s; }
+  .tl-far  { opacity: 0.12; transition: opacity .2s; }
+  .tl-near:hover, .tl-far:hover { opacity: 0.7; }
+  .tl-group:not(.tl-near):not(.tl-far) .tl-date {
+    color: var(--accent); font-size: 16px;
+  }
+  .tl-summary {
+    display: inline; background: #fff8e1; color: #7a5100;
+    border-radius: 3px; padding: 1px 5px;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: background .12s, color .12s;
+  }
+  .tl-summary:hover { background: #ffe57f; color: #4a3000; }
+  .tl-summary-input {
+    font-size: 13px; font-weight: 500; color: #4a3000;
+    background: #fff8e1; border: 1px solid #ffc107;
+    border-radius: 3px; padding: 1px 5px;
+    outline: none; width: 14ch;
+  }
+
+  /* 요약 라벨 인라인 편집 */
+  .day-summary { cursor: text; }
+  .day-summary-input {
+    font: inherit; font-size: 10.5px; font-weight: 500;
+    background: #fff8e1; border: 1.5px solid #ffc107;
+    border-radius: 4px; padding: 2px 6px; color: #6d4c00;
+    outline: none; width: 100%; box-sizing: border-box;
+    margin-top: 5px;
+  }
   .tl-empty button {
     display: inline-block; margin-top: 10px; font: inherit; font-size: 14px;
     background: var(--accent); color: #fff; border: none; border-radius: 980px; padding: 9px 18px; cursor: pointer;
@@ -294,9 +352,208 @@
   @media (max-width: 760px) {
     .sidebar { display: none; }
   }
+
+  /* ── 셀 파일 목록 ───────────────────────── */
+  .file-box {
+    position: relative; margin-top: 4px; height: 68px; cursor: pointer;
+    background: rgba(238,240,244,.66); border: 1px solid rgba(195,200,210,.38); border-radius: 9px;
+    padding: 6px 7px; display: flex; flex-direction: column; gap: 3px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(20,30,60,.05);
+  }
+  .file-row {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; line-height: 1.3; cursor: pointer;
+    border-radius: 5px; padding: 1px 3px; margin: 0;
+    transition: background .12s; overflow: hidden;
+  }
+  .file-row:hover { background: var(--hover); }
+  .file-badge {
+    font-size: 9px; font-weight: 700; letter-spacing: .02em;
+    padding: 1px 4px; border-radius: 3px;
+    color: #fff; flex-shrink: 0;
+  }
+  .file-row-name {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--ink-2);
+  }
+  .file-row:hover .file-row-name { color: var(--ink); }
+  .file-more {
+    font-size: 11px; color: var(--ink-3); cursor: pointer;
+    padding: 1px 3px; margin: 1px 0 0;
+    border-radius: 5px; transition: background .12s, color .12s;
+    align-self: flex-start;
+  }
+  .file-more:hover { background: var(--accent-soft); color: var(--accent); }
+
+  /* ── 파일 팝오버 메뉴 ───────────────────── */
+  #file-menu {
+    position: fixed; z-index: 200;
+    background: var(--card); border: 1px solid var(--line-2);
+    border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,.14);
+    padding: 4px; display: none; flex-direction: column; gap: 1px; min-width: 160px; max-width: 280px;
+  }
+  #file-menu-name {
+    font-size: 12px; color: var(--ink-2); padding: 6px 12px 5px;
+    border-bottom: 1px solid var(--line); margin-bottom: 3px;
+    word-break: break-all; line-height: 1.4;
+  }
+  #file-menu button {
+    font: inherit; font-size: 13px; background: transparent; color: var(--ink);
+    border: none; border-radius: 7px; padding: 7px 12px; cursor: pointer;
+    text-align: left; transition: background .12s;
+  }
+  #file-menu button:hover { background: var(--hover); }
+
+  /* ── AI 요약 라벨 ───────────────────────── */
+  .day-summary {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 5px; align-self: flex-start;
+    background: #fff8e1; border: 1px solid #ffe082;
+    border-left: 3px solid #ffc107;
+    border-radius: 0 4px 4px 0;
+    padding: 2px 7px 2px 5px;
+    font-size: 10.5px; font-weight: 500; color: #6d4c00;
+    max-width: 100%; overflow: hidden;
+    white-space: nowrap; text-overflow: ellipsis;
+    cursor: pointer; transition: background .12s, border-color .12s, color .12s;
+  }
+  .day-summary:hover {
+    background: #fff3cd; border-color: #ffc107;
+    border-left-color: #e6a800; color: #4a3000;
+  }
+  .day-summary-text {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; min-width: 0;
+  }
+  .day-summary-edit {
+    flex-shrink: 0; font-size: 9px; opacity: 0;
+    transition: opacity .12s; margin-left: 3px;
+    cursor: pointer; line-height: 1;
+  }
+  .day-summary:hover .day-summary-edit { opacity: 0.6; }
+  .day-summary-edit:hover { opacity: 1 !important; }
+  .day-summary::before {
+    content: "✦"; font-size: 8px; color: #ffc107; flex-shrink: 0;
+  }
+
+  /* ── 스캔 프로그레스 ─────────────────────── */
+  #progress-wrap {
+    padding: 14px 22px;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--accent-line);
+  }
+  #progress-meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 13px; margin-bottom: 8px;
+  }
+  #progress-label { color: var(--ink); font-weight: 500; }
+  #progress-elapsed { color: var(--ink-3); font-size: 12px; }
+  #progress-sub { font-size: 12px; color: var(--ink-2); margin-bottom: 8px; }
+  .progress-track {
+    background: var(--accent-line); border-radius: 4px; height: 5px;
+    overflow: hidden;
+  }
+  #progress-bar {
+    height: 100%; border-radius: 4px; width: 0%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+  #progress-bar.pulse {
+    width: 100%;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.7; }
+  }
+  /* ── 월간요약 모달 (프리미엄) ───────────────── */
+  #monthModal {
+    position: fixed; inset: 0; z-index: 62;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: rgba(18,20,26,.42); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    opacity: 0; pointer-events: none; transition: opacity .22s ease;
+  }
+  body[data-month="open"] #monthModal { opacity: 1; pointer-events: auto; }
+  .mm-card {
+    width: min(680px, 94vw); max-height: 86vh; overflow-y: auto;
+    background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.28); overflow: hidden;
+    transform: translateY(10px) scale(.985); opacity: .5;
+    transition: transform .26s cubic-bezier(.22,1,.36,1), opacity .26s ease;
+  }
+  body[data-month="open"] .mm-card { transform: none; opacity: 1; }
+
+  .mm-hero {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 24px 26px 22px;
+    background:
+      radial-gradient(130% 150% at 0% 0%, var(--accent-soft) 0%, transparent 58%),
+      linear-gradient(180deg, var(--side), var(--card));
+    border-bottom: 1px solid var(--line);
+  }
+  .mm-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  .mm-title { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); line-height: 1.1; }
+  .mm-close {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    font-size: 13px; cursor: pointer; transition: background .15s, color .15s;
+  }
+  .mm-close:hover { background: var(--hover); color: var(--ink); }
+
+  .mm-content { padding: 20px 26px 24px; }
+  .mm-stats { margin-bottom: 18px; }
+  .mm-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  .mm-tile { display: flex; align-items: center; gap: 12px; background: var(--side); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; }
+  .mm-tile-wide { grid-column: 1 / -1; justify-content: space-between; }
+  .mm-tile-l { display: flex; align-items: center; gap: 12px; }
+  .mm-tile-busy { background: var(--accent-soft); border-color: var(--accent-line); }
+  .mm-ic { width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--card); color: var(--accent); border: 1px solid var(--line); }
+  .mm-ic-accent { background: var(--accent); color: #fff; border-color: transparent; }
+  .mm-ic svg { width: 19px; height: 19px; }
+  .mm-tt { display: flex; flex-direction: column; gap: 3px; }
+  .mm-tv { font-size: 23px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; line-height: 1; }
+  .mm-tu { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-left: 2px; }
+  .mm-tl { font-size: 12px; color: var(--ink-2); }
+  .mm-busy-date { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .mm-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--bg); margin-bottom: 12px; }
+  .mm-seg { height: 100%; }
+  .mm-tchips { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+  .mm-tchip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+  .mm-tchip b { color: var(--ink); font-weight: 700; }
+  .mm-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .mm-empty { font-size: 14px; color: var(--ink-2); font-style: italic; padding: 6px 0; }
+
+  .mm-ai { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; background: var(--side); }
+  .mm-ai-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .mm-ai-badge {
+    font-size: 11px; font-weight: 800; letter-spacing: .04em; color: #fff;
+    background: linear-gradient(135deg, var(--accent), #4aa0ff);
+    border-radius: 6px; padding: 2px 7px;
+  }
+  .mm-ai-label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .mm-foot { margin-top: 14px; display: flex; justify-content: flex-end; }
+  .mm-foot button {
+    font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+    color: #fff; background: var(--accent); border: none;
+    border-radius: 9px; padding: 9px 16px; cursor: pointer; transition: background .15s, transform .05s;
+  }
+  .mm-foot button:hover { background: #0058b0; }
+  .mm-foot button:active { transform: translateY(1px); }
+  .mm-foot button:disabled { opacity: .55; cursor: default; }
+  .ms-body { font-size: 14.5px; line-height: 1.75; color: var(--ink); white-space: pre-wrap; }
+  .ms-body.empty { color: var(--ink-3); font-style: italic; }
+  .ms-body .kw {
+    background: var(--accent-soft); color: var(--accent);
+    border-radius: 5px; padding: 0 5px; font-weight: 600; white-space: nowrap;
+  }
 </style>
 </head>
 <body>
+  <div id="file-menu">
+    <div id="file-menu-name"></div>
+    <button id="fm-open">파일 열기</button>
+    <button id="fm-folder">폴더 열기</button>
+  </div>
   <div id="scrim"></div>
   <div id="panel">
     <strong>스캔 폴더</strong>
@@ -308,21 +565,30 @@
     <input id="extInput" type="text" placeholder="확장자 (예: csv)" size="12">
     <button id="addExt">추가</button>
     <hr>
+    <hr>
+    <strong>AI 요약 (OpenAI) · 선택 기능</strong>
+    <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px;cursor:pointer;">
+      <input id="aiEnabled" type="checkbox">
+      AI 요약 사용
+    </label>
+    <p style="font-size:13px;color:var(--ink-2);margin:6px 0;">파일명으로 그날 업무를 요약합니다. 끄면(기본값) 외부로 전송되는 데이터가 전혀 없습니다.</p>
+    <p style="font-size:12px;color:#b15c00;background:#fff4e0;border:1px solid #ffd596;border-radius:6px;padding:8px 10px;margin:6px 0;">
+      ⚠ 켜고 요약을 생성하면 <b>해당 기간의 파일명이 OpenAI 서버로 전송</b>됩니다. 파일 내용은 전송되지 않습니다.
+    </p>
+    <input id="apiKeyInput" type="password" placeholder="OpenAI API 키 (sk-...)" style="width:100%;margin-bottom:4px;">
+    <p style="font-size:12px;color:var(--ink-2);margin:0 0 8px;">키는 이 PC에만 저장되며 외부 서버를 거치지 않습니다.</p>
     <button id="savePaths">저장</button>
     <button id="closePanel">닫기</button>
     <span id="panelMsg"></span>
   </div>
 
   <div class="app">
-    <header class="topbar">
-      <div class="brand">Every<span>Doing</span></div>
-      <div class="topbar-actions">
-        <button id="settings" class="icon-btn" title="폴더·파일유형 설정">설정</button>
-      </div>
-    </header>
-
     <div class="body">
       <aside class="sidebar">
+        <div class="side-brand">
+          <div class="brand">Every<span>Doing</span></div>
+          <button id="settings" class="icon-btn" title="폴더·파일유형 설정">설정</button>
+        </div>
         <div class="side-sec">
           <div class="side-title">달력 이동</div>
           <div id="monthNav"></div>
@@ -338,6 +604,8 @@
         <div class="side-sec">
           <div class="side-title">이달 요약</div>
           <div id="statBox"></div>
+          <button id="genSummaries" class="mininav-today" title="설정에서 AI 요약을 켠 경우에만 동작합니다">AI 요약 생성</button>
+          <button id="openMonthModal" class="mininav-today" style="margin-top:6px;">월간요약 보기</button>
         </div>
       </aside>
 
@@ -351,15 +619,19 @@
           <input id="search" type="text" placeholder="파일명 검색">
         </div>
         <div id="msg"></div>
-        <div id="progress-wrap" style="display:none; padding: 8px 22px 0;">
-          <div style="font-size:13px; color:#555; margin-bottom:4px;" id="progress-label">스캔 중...</div>
-          <div style="background:#e0e0e0; border-radius:4px; height:6px; width:100%;">
-            <div id="progress-bar" style="background:#1E6FE8; height:6px; border-radius:4px; width:0%; transition:width 0.3s;"></div>
+        <div id="progress-wrap" style="display:none;">
+          <div id="progress-meta">
+            <span id="progress-label">스캔 준비 중...</span>
+            <span id="progress-elapsed"></span>
+          </div>
+          <div id="progress-sub"></div>
+          <div class="progress-track">
+            <div id="progress-bar"></div>
           </div>
         </div>
         <div id="cal">
           <div id="weekhead">
-            <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
           </div>
           <div id="grid"></div>
         </div>
@@ -368,6 +640,32 @@
   </div>
 
   <aside id="timeline"></aside>
+
+  <div id="monthModal">
+    <div class="mm-card">
+      <div class="mm-hero">
+        <div>
+          <div class="mm-eyebrow">월간 업무 요약</div>
+          <div class="mm-title" id="monthModalTitle">월간요약</div>
+        </div>
+        <button id="monthModalClose" class="mm-close" title="닫기">✕</button>
+      </div>
+      <div class="mm-content">
+        <div id="mmStats" class="mm-stats"></div>
+        <div class="mm-ai">
+          <div class="mm-ai-head">
+            <span class="mm-ai-badge">AI</span>
+            <span class="mm-ai-label">AI 총평</span>
+          </div>
+          <div id="monthSummaryBody" class="ms-body"></div>
+          <div class="mm-foot">
+            <button id="genMonthSummary" title="설정에서 AI 요약을 켠 경우에만 동작합니다">AI 월간 총평 생성</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
