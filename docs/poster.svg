@@ -1,257 +1,238 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#eef0f8"/>
-      <stop offset="100%" stop-color="#e0e4f2"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8f9fc"/>
+      <stop offset="100%" stop-color="#eef1f8"/>
     </linearGradient>
-    <radialGradient id="bgblue" cx="50%" cy="0%" r="65%">
-      <stop offset="0%" stop-color="#0066cc" stop-opacity="0.09"/>
+    <radialGradient id="spot" cx="52%" cy="48%" r="45%">
+      <stop offset="0%" stop-color="#0066cc" stop-opacity="0.06"/>
       <stop offset="100%" stop-color="#0066cc" stop-opacity="0"/>
     </radialGradient>
-    <pattern id="dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="1" fill="#0066cc" opacity="0.05"/>
-    </pattern>
-    <filter id="winshadow" x="-6%" y="-4%" width="112%" height="116%">
-      <feDropShadow dx="0" dy="14" stdDeviation="28" flood-color="#1d1d1f" flood-opacity="0.15"/>
-      <feDropShadow dx="0" dy="3"  stdDeviation="7"  flood-color="#1d1d1f" flood-opacity="0.07"/>
-    </filter>
-    <linearGradient id="winbg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#fafbfc"/>
-    </linearGradient>
+    <!-- today glow -->
+    <radialGradient id="todayglow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0066cc" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#0066cc" stop-opacity="0"/>
+    </radialGradient>
   </defs>
 
   <rect width="1400" height="760" fill="url(#bg)"/>
-  <rect width="1400" height="760" fill="url(#bgblue)"/>
-  <rect width="1400" height="760" fill="url(#dots)"/>
+  <rect width="1400" height="760" fill="url(#spot)"/>
 
-  <!-- ── APP WINDOW (y=24, height=712) ─── -->
-  <g filter="url(#winshadow)">
-    <rect x="60" y="24" width="1280" height="712" rx="14" fill="url(#winbg)" stroke="#dde0ea" stroke-width="1"/>
+  <!-- ── MONTH LABEL (faint, background typography) ── -->
+  <text x="700" y="480"
+    font-family="'Malgun Gothic','Apple SD Gothic Neo','Helvetica Neue',sans-serif"
+    font-size="520" font-weight="800" fill="#0066cc" fill-opacity="0.03"
+    text-anchor="middle" letter-spacing="-0.06em">6</text>
 
-    <!-- titlebar -->
-    <rect x="60" y="24"  width="1280" height="42" rx="14" fill="#f5f6f9"/>
-    <rect x="60" y="50"  width="1280" height="16" fill="#f5f6f9"/>
-    <line x1="60" y1="66" x2="1340" y2="66" stroke="#e8e8ed" stroke-width="1"/>
-    <circle cx="86"  cy="45" r="6" fill="#ff5f57"/>
-    <circle cx="105" cy="45" r="6" fill="#febc2e"/>
-    <circle cx="124" cy="45" r="6" fill="#28c840"/>
-    <text x="144" y="49" font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="700" fill="#1d1d1f">Every</text>
-    <text x="194" y="49" font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="700" fill="#0066cc">Doing</text>
-    <rect x="1110" y="34" width="66" height="22" rx="6" fill="#f0f0f3" stroke="#e0e0e5" stroke-width="1"/>
-    <text x="1143" y="49" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#6e6e73" text-anchor="middle">새로고침</text>
-    <rect x="1184" y="34" width="66" height="22" rx="6" fill="#f0f0f3" stroke="#e0e0e5" stroke-width="1"/>
-    <text x="1217" y="49" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#6e6e73" text-anchor="middle">월간 요약</text>
-    <rect x="1258" y="34" width="38" height="22" rx="6" fill="#f0f0f3" stroke="#e0e0e5" stroke-width="1"/>
-    <text x="1277" y="49" font-family="sans-serif" font-size="12" fill="#6e6e73" text-anchor="middle">⚙</text>
+  <!-- ── HEADER ── -->
+  <text x="100" y="100"
+    font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif"
+    font-size="13" font-weight="700" fill="#0066cc" letter-spacing="0.12em">EVERYDOING</text>
+  <text x="1300" y="100"
+    font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif"
+    font-size="13" fill="#b0b8cc" letter-spacing="0.04em" text-anchor="end">2026년 6월</text>
 
-    <!-- ── SIDEBAR (220px wide) ── -->
-    <rect x="60" y="66" width="220" height="670" fill="#fafbfc"/>
-    <line x1="280" y1="66" x2="280" y2="736" stroke="#e8e8ed" stroke-width="1"/>
-
-    <!-- year nav -->
-    <text x="76" y="90" font-family="'Malgun Gothic',sans-serif" font-size="9.5" font-weight="700" fill="#a1a1a6" letter-spacing="0.07em">YEAR</text>
-    <g font-family="'Malgun Gothic',sans-serif" font-size="12" text-anchor="middle" fill="#6e6e73">
-      <text x="100" y="110">1월</text><text x="138" y="110">2월</text><text x="176" y="110">3월</text><text x="214" y="110">4월</text>
-      <text x="100" y="130">5월</text>
-      <rect x="122" y="118" width="32" height="18" rx="6" fill="#0066cc"/>
-      <text x="138" y="130" fill="white" font-weight="700">6월</text>
-      <text x="176" y="130">7월</text><text x="214" y="130">8월</text>
-      <text x="100" y="150">9월</text><text x="138" y="150">10월</text><text x="176" y="150">11월</text><text x="214" y="150">12월</text>
-    </g>
-    <rect x="76" y="158" width="188" height="20" rx="6" fill="#0066cc14"/>
-    <text x="170" y="172" font-family="'Malgun Gothic',sans-serif" font-size="11" font-weight="700" fill="#0066cc" text-anchor="middle">오늘로 이동</text>
-
-    <line x1="60" y1="186" x2="280" y2="186" stroke="#e8e8ed" stroke-width="1"/>
-    <text x="76" y="204" font-family="'Malgun Gothic',sans-serif" font-size="9.5" font-weight="700" fill="#a1a1a6" letter-spacing="0.07em">스캔 폴더</text>
-    <rect x="76" y="212" width="5" height="5" rx="1.5" fill="#a1a1a6"/>
-    <text x="86" y="217" font-family="'Malgun Gothic',sans-serif" font-size="11.5" fill="#6e6e73">D:\업무\</text>
-    <rect x="76" y="228" width="5" height="5" rx="1.5" fill="#a1a1a6"/>
-    <text x="86" y="233" font-family="'Malgun Gothic',sans-serif" font-size="11.5" fill="#6e6e73">D:\보고서\</text>
-
-    <line x1="60" y1="246" x2="280" y2="246" stroke="#e8e8ed" stroke-width="1"/>
-    <text x="76" y="264" font-family="'Malgun Gothic',sans-serif" font-size="9.5" font-weight="700" fill="#a1a1a6" letter-spacing="0.07em">이달 현황</text>
-    <text x="76" y="294" font-family="'Malgun Gothic',sans-serif" font-size="28" font-weight="700" fill="#1d1d1f" letter-spacing="-0.03em">12</text>
-    <text x="76" y="310" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">활동일</text>
-    <text x="162" y="294" font-family="'Malgun Gothic',sans-serif" font-size="28" font-weight="700" fill="#1d1d1f" letter-spacing="-0.03em">38</text>
-    <text x="162" y="310" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">문서</text>
-
-    <line x1="60" y1="324" x2="280" y2="324" stroke="#e8e8ed" stroke-width="1"/>
-    <text x="76" y="342" font-family="'Malgun Gothic',sans-serif" font-size="9.5" font-weight="700" fill="#a1a1a6" letter-spacing="0.07em">파일 종류</text>
-    <g font-family="'Malgun Gothic',sans-serif" font-size="11.5" fill="#6e6e73">
-      <circle cx="80" cy="356" r="4.5" fill="#0066cc"/><text x="90" y="360">HWP</text><text x="258" y="360" fill="#a1a1a6" text-anchor="end">45%</text>
-      <circle cx="80" cy="374" r="4.5" fill="#2563eb"/><text x="90" y="378">DOC</text><text x="258" y="378" fill="#a1a1a6" text-anchor="end">20%</text>
-      <circle cx="80" cy="392" r="4.5" fill="#10b981"/><text x="90" y="396">XLS</text><text x="258" y="396" fill="#a1a1a6" text-anchor="end">18%</text>
-      <circle cx="80" cy="410" r="4.5" fill="#ef4444"/><text x="90" y="414">PPT</text><text x="258" y="414" fill="#a1a1a6" text-anchor="end">10%</text>
-      <circle cx="80" cy="428" r="4.5" fill="#f43f5e"/><text x="90" y="432">PDF</text><text x="258" y="432" fill="#a1a1a6" text-anchor="end"> 7%</text>
-    </g>
-
-    <!-- ── MAIN CALENDAR ── -->
-    <!-- cal header -->
-    <rect x="280" y="66" width="1060" height="48" fill="#ffffff"/>
-    <line x1="280" y1="114" x2="1340" y2="114" stroke="#e8e8ed" stroke-width="1"/>
-    <text x="310" y="97" font-family="'Malgun Gothic',sans-serif" font-size="19" font-weight="700" fill="#1d1d1f">6월</text>
-    <text x="338" y="97" font-family="'Malgun Gothic',sans-serif" font-size="12" fill="#a1a1a6">2026년</text>
-    <rect x="1166" y="78" width="154" height="24" rx="12" fill="#f0f0f3" stroke="#d2d2d7" stroke-width="1"/>
-    <text x="1243" y="94" font-family="'Malgun Gothic',sans-serif" font-size="11" fill="#a1a1a6" text-anchor="middle">파일명 검색…</text>
-
-    <!-- weekdays -->
-    <rect x="280" y="114" width="1060" height="28" fill="#f5f6f9"/>
-    <line x1="280" y1="142" x2="1340" y2="142" stroke="#e8e8ed" stroke-width="1"/>
-    <g font-family="'Malgun Gothic',sans-serif" font-size="11" font-weight="700" fill="#a1a1a6">
-      <text x="295" y="132">일</text><text x="447" y="132">월</text><text x="599" y="132">화</text>
-      <text x="751" y="132">수</text><text x="903" y="132">목</text><text x="1055" y="132">금</text><text x="1207" y="132">토</text>
-    </g>
-
-    <!-- grid: 7cols×152px, 5rows×118px (142~732) -->
-    <g stroke="#e8e8ed" stroke-width="1">
-      <line x1="432"  y1="142" x2="432"  y2="736"/>
-      <line x1="584"  y1="142" x2="584"  y2="736"/>
-      <line x1="736"  y1="142" x2="736"  y2="736"/>
-      <line x1="888"  y1="142" x2="888"  y2="736"/>
-      <line x1="1040" y1="142" x2="1040" y2="736"/>
-      <line x1="1192" y1="142" x2="1192" y2="736"/>
-      <line x1="280" y1="260" x2="1340" y2="260"/>
-      <line x1="280" y1="378" x2="1340" y2="378"/>
-      <line x1="280" y1="496" x2="1340" y2="496"/>
-      <line x1="280" y1="614" x2="1340" y2="614"/>
-    </g>
-
-    <!-- active cell tints (row h=118) -->
-    <rect x="888"  y="142" width="152" height="118" fill="#0066cc07"/>
-    <rect x="1040" y="142" width="152" height="118" fill="#0066cc05"/>
-    <rect x="432"  y="260" width="152" height="118" fill="#0066cc06"/>
-    <rect x="584"  y="260" width="152" height="118" fill="#0066cc05"/>
-    <rect x="888"  y="260" width="152" height="118" fill="#0066cc05"/>
-    <rect x="1040" y="260" width="152" height="118" fill="#0066cc05"/>
-    <rect x="432"  y="378" width="152" height="118" fill="#0066cc05"/>
-    <rect x="584"  y="378" width="152" height="118" fill="#0066cc05"/>
-    <rect x="736"  y="378" width="152" height="118" fill="#0066cc05"/>
-    <!-- TODAY -->
-    <rect x="888"  y="378" width="152" height="118" fill="#0066cc0d" stroke="#0066cc40" stroke-width="1"/>
-    <rect x="432"  y="496" width="152" height="118" fill="#0066cc05"/>
-    <rect x="736"  y="496" width="152" height="118" fill="#0066cc05"/>
-    <rect x="1040" y="496" width="152" height="118" fill="#0066cc05"/>
-    <rect x="432"  y="614" width="152" height="118" fill="#0066cc05"/>
-    <rect x="736"  y="614" width="152" height="118" fill="#0066cc05"/>
-
-    <!-- date numbers -->
-    <g font-family="'Malgun Gothic',sans-serif" font-size="12.5" font-weight="700">
-      <text x="295"  y="164" fill="#d2d2d7">26</text><text x="447" y="164" fill="#d2d2d7">27</text><text x="599" y="164" fill="#d2d2d7">28</text>
-      <text x="751"  y="164" fill="#6e6e73">1</text><text x="903" y="164" fill="#1d1d1f">2</text><text x="1055" y="164" fill="#1d1d1f">3</text><text x="1207" y="164" fill="#6e6e73">4</text>
-      <text x="295"  y="282" fill="#6e6e73">5</text><text x="447" y="282" fill="#1d1d1f">6</text><text x="599" y="282" fill="#1d1d1f">7</text>
-      <text x="751"  y="282" fill="#6e6e73">8</text><text x="903" y="282" fill="#1d1d1f">9</text><text x="1055" y="282" fill="#1d1d1f">10</text><text x="1207" y="282" fill="#6e6e73">11</text>
-      <text x="295"  y="400" fill="#6e6e73">12</text><text x="447" y="400" fill="#1d1d1f">13</text><text x="599" y="400" fill="#1d1d1f">14</text>
-      <text x="751"  y="400" fill="#1d1d1f">15</text><text x="903" y="400" fill="#0066cc">16</text><text x="1055" y="400" fill="#6e6e73">17</text><text x="1207" y="400" fill="#6e6e73">18</text>
-      <text x="295"  y="518" fill="#6e6e73">19</text><text x="447" y="518" fill="#1d1d1f">20</text><text x="599" y="518" fill="#6e6e73">21</text>
-      <text x="751"  y="518" fill="#1d1d1f">22</text><text x="903" y="518" fill="#6e6e73">23</text><text x="1055" y="518" fill="#1d1d1f">24</text><text x="1207" y="518" fill="#6e6e73">25</text>
-      <text x="295"  y="636" fill="#6e6e73">26</text><text x="447" y="636" fill="#1d1d1f">27</text><text x="599" y="636" fill="#6e6e73">28</text>
-      <text x="751"  y="636" fill="#1d1d1f">29</text><text x="903" y="636" fill="#1d1d1f">30</text><text x="1055" y="636" fill="#d2d2d7">1</text><text x="1207" y="636" fill="#d2d2d7">2</text>
-    </g>
-
-    <!-- CHIPS ── -->
-    <!-- row1: 2일 -->
-    <rect x="891" y="170" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="898" cy="177" r="2.5" fill="#0066cc"/>
-    <text x="903" y="181" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <rect x="928" y="170" width="28" height="15" rx="4" fill="#10b98115"/>
-    <circle cx="935" cy="177" r="2.5" fill="#10b981"/>
-    <text x="940" y="181" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#10b981">XLS</text>
-    <text x="891" y="200" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">3개</text>
-
-    <!-- row1: 3일 -->
-    <rect x="1043" y="170" width="28" height="15" rx="4" fill="#10b98115"/>
-    <circle cx="1050" cy="177" r="2.5" fill="#10b981"/>
-    <text x="1055" y="181" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#10b981">XLS</text>
-    <text x="1043" y="200" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">1개</text>
-
-    <!-- row2: 6일 -->
-    <rect x="435" y="288" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="442" cy="295" r="2.5" fill="#0066cc"/>
-    <text x="447" y="299" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <rect x="472" y="288" width="32" height="15" rx="4" fill="#2563eb15"/>
-    <circle cx="479" cy="295" r="2.5" fill="#2563eb"/>
-    <text x="484" y="299" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#2563eb">DOC</text>
-    <text x="435" y="315" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">2개</text>
-    <text x="435" y="330" font-family="'Malgun Gothic',sans-serif" font-size="9.5" fill="#0066cc90">진행실적 취합</text>
-
-    <!-- row2: 7일 -->
-    <rect x="587" y="288" width="30" height="15" rx="4" fill="#ef444415"/>
-    <circle cx="594" cy="295" r="2.5" fill="#ef4444"/>
-    <text x="599" y="299" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#ef4444">PPT</text>
-    <rect x="620" y="288" width="28" height="15" rx="4" fill="#10b98115"/>
-    <circle cx="627" cy="295" r="2.5" fill="#10b981"/>
-    <text x="632" y="299" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#10b981">XLS</text>
-    <text x="587" y="315" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">4개</text>
-
-    <!-- row2: 9일 -->
-    <rect x="891" y="288" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="898" cy="295" r="2.5" fill="#0066cc"/>
-    <text x="903" y="299" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <text x="891" y="315" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">2개</text>
-
-    <!-- row2: 10일 -->
-    <rect x="1043" y="288" width="28" height="15" rx="4" fill="#f43f5e15"/>
-    <circle cx="1050" cy="295" r="2.5" fill="#f43f5e"/>
-    <text x="1055" y="299" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#f43f5e">PDF</text>
-    <text x="1043" y="315" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">3개</text>
-    <text x="1043" y="330" font-family="'Malgun Gothic',sans-serif" font-size="9.5" fill="#0066cc90">보고서 검토</text>
-
-    <!-- row3: 13일 -->
-    <rect x="435" y="406" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="442" cy="413" r="2.5" fill="#0066cc"/>
-    <text x="447" y="417" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <rect x="472" y="406" width="28" height="15" rx="4" fill="#10b98115"/>
-    <circle cx="479" cy="413" r="2.5" fill="#10b981"/>
-    <text x="484" y="417" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#10b981">XLS</text>
-    <text x="435" y="433" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">5개</text>
-
-    <!-- row3: 15일 -->
-    <rect x="739" y="406" width="30" height="15" rx="4" fill="#ef444415"/>
-    <circle cx="746" cy="413" r="2.5" fill="#ef4444"/>
-    <text x="751" y="417" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#ef4444">PPT</text>
-    <text x="739" y="433" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">3개</text>
-    <text x="739" y="448" font-family="'Malgun Gothic',sans-serif" font-size="9.5" fill="#0066cc90">기획안 1차</text>
-
-    <!-- row3: TODAY 16일 -->
-    <rect x="891" y="406" width="34" height="15" rx="4" fill="#0066cc22"/>
-    <circle cx="898" cy="413" r="2.5" fill="#0066cc"/>
-    <text x="903" y="417" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <rect x="891" y="424" width="28" height="15" rx="4" fill="#10b98122"/>
-    <circle cx="898" cy="431" r="2.5" fill="#10b981"/>
-    <text x="903" y="435" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#10b981">XLS</text>
-    <text x="891" y="451" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#0066cc">4개 ★</text>
-
-    <!-- row4: 20일 -->
-    <rect x="435" y="524" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="442" cy="531" r="2.5" fill="#0066cc"/>
-    <text x="447" y="535" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <text x="435" y="551" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">2개</text>
-
-    <!-- row4: 22일 -->
-    <rect x="739" y="524" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="746" cy="531" r="2.5" fill="#0066cc"/>
-    <text x="751" y="535" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <text x="739" y="551" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">3개</text>
-    <text x="739" y="566" font-family="'Malgun Gothic',sans-serif" font-size="9.5" fill="#0066cc90">월말 정리</text>
-
-    <!-- row4: 24일 -->
-    <rect x="1043" y="524" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="1050" cy="531" r="2.5" fill="#0066cc"/>
-    <text x="1055" y="535" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <text x="1043" y="551" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">2개</text>
-
-    <!-- row5: 27일 -->
-    <rect x="435" y="642" width="32" height="15" rx="4" fill="#2563eb15"/>
-    <circle cx="442" cy="649" r="2.5" fill="#2563eb"/>
-    <text x="447" y="653" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#2563eb">DOC</text>
-    <text x="435" y="669" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">1개</text>
-
-    <!-- row5: 29일 -->
-    <rect x="739" y="642" width="34" height="15" rx="4" fill="#0066cc15"/>
-    <circle cx="746" cy="649" r="2.5" fill="#0066cc"/>
-    <text x="751" y="653" font-family="sans-serif" font-size="9.5" font-weight="700" fill="#0066cc">HWP</text>
-    <text x="739" y="669" font-family="'Malgun Gothic',sans-serif" font-size="10.5" fill="#a1a1a6">3개</text>
-
+  <!-- ── WEEKDAY HEADER ── -->
+  <g font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif" font-size="11" font-weight="700"
+     fill="#c8cfe0" letter-spacing="0.05em" text-anchor="middle">
+    <text x="200">일</text><text x="400">월</text><text x="600">화</text>
+    <text x="800">수</text><text x="1000">목</text><text x="1200">금</text><text x="1380">토</text>
   </g>
+  <line x1="100" y1="128" x2="1300" y2="128" stroke="#e4e8f0" stroke-width="1"/>
+
+  <!-- ── CALENDAR GRID ── -->
+  <!-- 5 rows, col centers: 200,400,600,800,1000,1200,1380 -->
+  <!-- row y (number baseline): 200, 318, 436, 554, 672 -->
+
+  <!-- helper: dim dates -->
+  <g font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif" font-size="32" font-weight="700"
+     fill="#dde2ee" text-anchor="middle">
+    <!-- row0 empties -->
+    <text x="200" y="200">26</text><text x="400" y="200">27</text><text x="600" y="200">28</text>
+    <!-- row5 empties -->
+    <text x="1200" y="672">1</text><text x="1380" y="672">2</text>
+  </g>
+
+  <!-- normal dates (no activity) -->
+  <g font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif" font-size="32" font-weight="700"
+     fill="#c8d0e2" text-anchor="middle">
+    <text x="800"  y="200">1</text>
+    <text x="200"  y="318">5</text>
+    <text x="800"  y="318">8</text>
+    <text x="1380" y="318">11</text>
+    <text x="200"  y="436">12</text>
+    <text x="1200" y="436">17</text>
+    <text x="1380" y="436">18</text>
+    <text x="200"  y="554">19</text>
+    <text x="600"  y="554">21</text>
+    <text x="1380" y="554">25</text>
+    <text x="200"  y="672">26</text>
+    <text x="600"  y="672">28</text>
+    <text x="1000" y="672">30</text>
+  </g>
+
+  <!-- active dates -->
+  <g font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif" font-size="32" font-weight="700"
+     fill="#8090b0" text-anchor="middle">
+    <text x="1000" y="200">2</text>
+    <text x="1200" y="200">3</text>
+    <text x="400"  y="318">6</text>
+    <text x="600"  y="318">7</text>
+    <text x="1000" y="318">9</text>
+    <text x="1200" y="318">10</text>
+    <text x="400"  y="436">13</text>
+    <text x="600"  y="436">14</text>
+    <text x="800"  y="436">15</text>
+    <!-- 16 = TODAY, skip here, draw separately -->
+    <text x="400"  y="554">20</text>
+    <text x="800"  y="554">22</text>
+    <text x="1200" y="554">24</text>
+    <text x="400"  y="672">27</text>
+    <text x="800"  y="672">29</text>
+  </g>
+
+  <!-- TODAY: 16 -->
+  <circle cx="1000" cy="418" r="38" fill="url(#todayglow)"/>
+  <circle cx="1000" cy="418" r="26" fill="#0066cc"/>
+  <text x="1000" y="427"
+    font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif"
+    font-size="26" font-weight="800" fill="white" text-anchor="middle">16</text>
+
+  <!-- ── FILE TYPE CHIPS ── -->
+  <!-- chip macro: rect + dot + text -->
+  <!-- Colors: HWP=#0066cc, DOC=#2563eb, XLS=#10b981, PPT=#ef4444, PDF=#f43f5e -->
+
+  <!-- 2일 (x=1000, row0 y=200) -->
+  <g transform="translate(940,148)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+  <g transform="translate(978,148)">
+    <rect width="28" height="18" rx="9" fill="#10b98118"/>
+    <circle cx="9" cy="9" r="3" fill="#10b981"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#10b981">XLS</text>
+  </g>
+
+  <!-- 3일 (x=1200) -->
+  <g transform="translate(1158,148)">
+    <rect width="28" height="18" rx="9" fill="#10b98118"/>
+    <circle cx="9" cy="9" r="3" fill="#10b981"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#10b981">XLS</text>
+  </g>
+
+  <!-- 6일 (x=400, row1) -->
+  <g transform="translate(344,266)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+  <g transform="translate(382,266)">
+    <rect width="32" height="18" rx="9" fill="#2563eb18"/>
+    <circle cx="9" cy="9" r="3" fill="#2563eb"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#2563eb">DOC</text>
+  </g>
+
+  <!-- 7일 (x=600) -->
+  <g transform="translate(554,266)">
+    <rect width="28" height="18" rx="9" fill="#ef444418"/>
+    <circle cx="9" cy="9" r="3" fill="#ef4444"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#ef4444">PPT</text>
+  </g>
+  <g transform="translate(586,266)">
+    <rect width="28" height="18" rx="9" fill="#10b98118"/>
+    <circle cx="9" cy="9" r="3" fill="#10b981"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#10b981">XLS</text>
+  </g>
+
+  <!-- 9일 (x=1000) -->
+  <g transform="translate(960,266)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+
+  <!-- 10일 (x=1200) -->
+  <g transform="translate(1152,266)">
+    <rect width="28" height="18" rx="9" fill="#f43f5e18"/>
+    <circle cx="9" cy="9" r="3" fill="#f43f5e"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#f43f5e">PDF</text>
+  </g>
+  <g transform="translate(1184,266)">
+    <rect width="32" height="18" rx="9" fill="#2563eb18"/>
+    <circle cx="9" cy="9" r="3" fill="#2563eb"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#2563eb">DOC</text>
+  </g>
+
+  <!-- 13일 (x=400, row2) -->
+  <g transform="translate(344,384)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+  <g transform="translate(382,384)">
+    <rect width="28" height="18" rx="9" fill="#10b98118"/>
+    <circle cx="9" cy="9" r="3" fill="#10b981"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#10b981">XLS</text>
+  </g>
+
+  <!-- 14일 (x=600) -->
+  <g transform="translate(570,384)">
+    <rect width="32" height="18" rx="9" fill="#2563eb18"/>
+    <circle cx="9" cy="9" r="3" fill="#2563eb"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#2563eb">DOC</text>
+  </g>
+
+  <!-- 15일 (x=800) -->
+  <g transform="translate(754,384)">
+    <rect width="28" height="18" rx="9" fill="#ef444418"/>
+    <circle cx="9" cy="9" r="3" fill="#ef4444"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#ef4444">PPT</text>
+  </g>
+
+  <!-- 16일 TODAY chips -->
+  <g transform="translate(944,384)">
+    <rect width="34" height="18" rx="9" fill="#0066cc25"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+  <g transform="translate(982,384)">
+    <rect width="28" height="18" rx="9" fill="#10b98125"/>
+    <circle cx="9" cy="9" r="3" fill="#10b981"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#10b981">XLS</text>
+  </g>
+
+  <!-- 20일 (x=400, row3) -->
+  <g transform="translate(364,502)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+
+  <!-- 22일 (x=800) -->
+  <g transform="translate(752,502)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+  <g transform="translate(790,502)">
+    <rect width="28" height="18" rx="9" fill="#2563eb18"/>
+    <circle cx="9" cy="9" r="3" fill="#2563eb"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#2563eb">DOC</text>
+  </g>
+
+  <!-- 24일 (x=1200) -->
+  <g transform="translate(1158,502)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+
+  <!-- 27일 (x=400, row4) -->
+  <g transform="translate(364,620)">
+    <rect width="32" height="18" rx="9" fill="#2563eb18"/>
+    <circle cx="9" cy="9" r="3" fill="#2563eb"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#2563eb">DOC</text>
+  </g>
+
+  <!-- 29일 (x=800) -->
+  <g transform="translate(752,620)">
+    <rect width="34" height="18" rx="9" fill="#0066cc18"/>
+    <circle cx="9" cy="9" r="3" fill="#0066cc"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#0066cc">HWP</text>
+  </g>
+  <g transform="translate(790,620)">
+    <rect width="28" height="18" rx="9" fill="#f43f5e18"/>
+    <circle cx="9" cy="9" r="3" fill="#f43f5e"/><text x="16" y="13" font-family="sans-serif" font-size="10" font-weight="700" fill="#f43f5e">PDF</text>
+  </g>
+
+  <!-- ── FOOTER ── -->
+  <line x1="100" y1="718" x2="1300" y2="718" stroke="#e4e8f0" stroke-width="1"/>
+  <text x="100" y="742"
+    font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif"
+    font-size="13" font-weight="700" fill="#1d1d1f">EveryDoing</text>
+  <text x="260" y="742"
+    font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif"
+    font-size="13" fill="#b0b8cc">파일 수정일을 달력에 — Windows 전용 로컬 앱</text>
+  <text x="1300" y="742"
+    font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif"
+    font-size="13" fill="#b0b8cc" text-anchor="end">Tauri 2 · Rust · NTFS MFT</text>
 </svg>
