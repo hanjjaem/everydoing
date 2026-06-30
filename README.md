@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/License-BSL_1.1-8A2BE2?style=flat-square" alt="BSL 1.1">
 </p>
 
-# 내가 한 일을, 날짜로
+# 내가 한 일을 자동으로, 캘린더에서, 한 눈에.
 
 #### ⚡ 한눈에
 
