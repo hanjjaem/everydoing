@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/poster.svg" alt="내가 한 일을, 날짜로 — 파일 수정일을 월 달력에 자동 정렬하는 Windows 데스크톱 앱" width="780">
+  <img src="docs/poster.svg" alt="EveryDoing — 내가 한 일을, 날짜로" width="800">
 </p>
 
 <p align="center">
@@ -9,37 +9,94 @@
   <img src="https://img.shields.io/badge/License-BSL_1.1-8A2BE2?style=flat-square" alt="BSL 1.1">
 </p>
 
-# 내가 한 일을 자동으로, 캘린더에서, 한 눈에.
+<br>
 
-#### ⚡ 한눈에
+<p align="center">
+  업무 파일의 수정일을 자동으로 읽어 월 달력에 펼쳐 보여줍니다.<br>
+  별도 태그·분류 없이, <strong>"그날 뭘 했더라"</strong>에 즉시 답합니다.
+</p>
 
-- PC 안의 업무 파일을 **파일 수정일 기준**으로 월 달력에 자동 정렬
-- HWP · DOC · XLS · PPT · PDF를 **브랜드색 배지**로 즉시 구분
-- **한 줄 메모** — 날짜 칸 클릭, 인라인 입력, 로컬 저장
-- **월간 요약** — 활동일 · 문서 수 · 가장 바쁜 날 · 파일 유형 분포
-- **AI 총평 (선택)** — 기본 꺼짐. 켜도 파일명만 전송, 매번 confirm
-
-**스택** · Tauri 2 · Rust · 바닐라 HTML/CSS/JS · NTFS MFT (`ntfs-reader`)
+<br>
 
 ---
 
-## 어떻게 동작하나 (원리)
+<table width="100%">
+<tr>
+<td width="33%" align="center" valign="top">
 
-### 1) 핵심 아이디어
+**📅 수정일 기준 달력**
 
-"언제 무슨 문서를 건드렸는지"는 파일 수정일에 이미 기록돼 있습니다. 별도 태그·분류 없이 **파일 수정일만 읽어** 달력에 배치합니다. NTFS MFT를 직접 순회하므로 Everything 같은 외부 프로그램이 전혀 필요 없습니다.
+파일 수정일을 자동으로 읽어\
+월 달력에 배치합니다.\
+어느 날 어떤 문서를 건드렸는지\
+한눈에 확인합니다.
 
-### 2) 인덱싱 흐름
+</td>
+<td width="33%" align="center" valign="top">
+
+**⚡ NTFS MFT 직접 인덱싱**
+
+Everything 같은 외부 앱 없이\
+NTFS MFT를 직접 순회합니다.\
+수만 개 파일도 빠르게,\
+단독 `.exe` 하나로.
+
+</td>
+<td width="33%" align="center" valign="top">
+
+**🔒 완전 로컬**
+
+색인·달력·메모·통계 모두\
+이 PC에서만 처리됩니다.\
+기본 상태에서\
+외부 통신이 전혀 없습니다.
+
+</td>
+</tr>
+<tr>
+<td width="33%" align="center" valign="top">
+
+**🏷 파일 종류 배지**
+
+HWP · DOC · XLS · PPT · PDF를\
+브랜드 컬러 배지로 구분합니다.\
+어떤 종류의 작업을 했는지\
+즉시 파악합니다.
+
+</td>
+<td width="33%" align="center" valign="top">
+
+**✏️ 한 줄 메모**
+
+날짜 칸 빈 곳을 클릭하면\
+바로 메모를 입력합니다.\
+로컬에 저장되고\
+언제든 수정합니다.
+
+</td>
+<td width="33%" align="center" valign="top">
+
+**✨ AI 총평 (선택)**
+
+기본 꺼짐. 켜도\
+파일명만 전송,\
+매번 confirm 동의,\
+본인 OpenAI 키(BYOK).
+
+</td>
+</tr>
+</table>
+
+---
+
+## 어떻게 동작하나
 
 ```
 PC 내 파일 (NTFS 드라이브)
-    │
-    │  ntfs-reader — MFT 직접 순회 (관리자 권한)
-    │  scan_paths의 드라이브 자동 추출 → 해당 볼륨만 인덱싱
-    │  비NTFS / 권한 실패 드라이브는 skipped 처리 후 계속
+    │  ntfs-reader — MFT 직접 순회
+    │  scan_paths의 드라이브에서 해당 볼륨만 인덱싱
     ▼
 index.json  (%APPDATA%\EveryDoing\)
-    │
     │  Tauri 백엔드 → 프런트 emit
     ▼
 달력 렌더링  (바닐라 JS)
@@ -49,28 +106,23 @@ index.json  (%APPDATA%\EveryDoing\)
 memos.json  (%APPDATA%\EveryDoing\)
 ```
 
-### 3) 데이터 저장
+> MFT 원시 접근은 관리자 권한이 필요합니다. 비NTFS 드라이브(USB FAT32 등)는 자동으로 건너뜁니다.
 
-| 파일 | 위치 | 내용 |
-|---|---|---|
-| `config.json` | `%APPDATA%\EveryDoing\` | 스캔 경로·확장자·AI 옵션 |
-| `index.json` | `%APPDATA%\EveryDoing\` | 파일 색인 캐시 |
-| `memos.json` | `%APPDATA%\EveryDoing\` | 날짜별 한 줄 메모 |
+---
 
-### 4) AI 총평 — BYOK, 기본 꺼짐
+## 빠른 시작
 
+```bash
+# 요구사항: Windows 10/11, Rust 1.77+, VS Build Tools + WebView2
+
+# 개발 실행 — 반드시 관리자 터미널에서
+cargo tauri dev
+
+# 배포 빌드 (NSIS 설치본, UAC 승격 포함)
+cargo tauri build
 ```
-설정에서 수동으로 켬
-    │  Config.ai_summary_enabled = true
-    │  사용자 본인 OpenAI 키 입력 → config.json에만 저장 (서버 미경유)
-    ▼
-사이드바 'AI 요약 생성' 버튼 클릭 + 매번 confirm 동의
-    │  전송 대상: 파일명만 (파일 내용 아님)
-    ▼
-OpenAI API
 
-끄면 → 외부 통신 0
-```
+설정 파일 위치: `%APPDATA%\EveryDoing\config.json`
 
 ---
 
@@ -86,38 +138,7 @@ src-tauri/src/
 static/
   index.html       달력 UI · 사이드바 · 드로어 · 메모 · 설정 패널
   app.js           이벤트 처리 · 달력 렌더 · Tauri invoke
-
-src-tauri/
-  tauri.conf.json  앱 설정 · 권한
-  Cargo.toml       의존성 (ntfs-reader, tauri 2, tokio …)
 ```
-
----
-
-## 로컬 실행
-
-```bash
-# 요구 사항
-# - Windows 10 / 11 (x64)
-# - Rust 1.77+  →  https://rustup.rs
-# - Visual Studio Build Tools + WebView2  (Tauri 2 사전 요구사항)
-
-# 개발 실행 — 반드시 관리자 터미널에서
-cargo tauri dev
-
-# 배포 빌드 — NSIS 설치본 (UAC 승격 포함)
-cargo tauri build
-```
-
-> MFT 원시 접근은 관리자 권한이 필요합니다. 일반 터미널에서는 인덱싱이 동작하지 않습니다.
-
----
-
-## 한계 · 주의
-
-- 비NTFS 드라이브(USB FAT32 등)는 자동으로 건너뜁니다.
-- 파일 수정일은 앱이 저장하는 날짜가 아니라 OS가 기록하는 날짜입니다. 복사·이동 시 바뀔 수 있습니다.
-- AI 총평은 파일명만 보고 추론합니다. 최종 업무 판단은 사람이 합니다.
 
 ---
 
