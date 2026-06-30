@@ -23,6 +23,41 @@
     <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
       <circle cx="1" cy="1" r="1" fill="#0066cc" opacity="0.06"/>
     </pattern>
+    <!-- headline gradient: dark → blue -->
+    <linearGradient id="titlegrad1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1d1d1f"/>
+      <stop offset="100%" stop-color="#0055bb"/>
+    </linearGradient>
+    <linearGradient id="titlegrad2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0066cc"/>
+      <stop offset="60%" stop-color="#4a90e2"/>
+      <stop offset="100%" stop-color="#7c5cde"/>
+    </linearGradient>
+    <!-- glow filter for headline text -->
+    <filter id="textglow" x="-10%" y="-40%" width="120%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0.4
+                0 0 0 0 0.8
+                0 0 0 0.5 0" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textglow2" x="-10%" y="-40%" width="120%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0.3
+                0 0 0 0 0.9
+                0 0 0 0.7 0" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
   <!-- bg -->
@@ -37,30 +72,26 @@
   <circle cx="77" cy="95" r="3.5" fill="#22c55e"/>
   <text x="90" y="99.5" font-family="-apple-system,'Pretendard',sans-serif" font-size="11.5" font-weight="600" fill="#0066cc" letter-spacing="0.03em">Windows 전용 · 로컬</text>
 
-  <!-- app icon mark -->
-  <rect x="60" y="142" width="40" height="40" rx="11" fill="#0066cc"/>
-  <text x="80" y="167" font-family="sans-serif" font-size="20" text-anchor="middle" fill="white">🗂</text>
-
   <!-- headline -->
-  <text x="60" y="230" font-family="-apple-system,'Pretendard','Malgun Gothic',sans-serif" font-size="62" font-weight="800" fill="#1d1d1f" letter-spacing="-0.04em">내가 한 일을</text>
-  <text x="60" y="300" font-family="-apple-system,'Pretendard','Malgun Gothic',sans-serif" font-size="62" font-weight="800" fill="#0066cc" letter-spacing="-0.04em">날짜로.</text>
+  <text x="60" y="218" font-family="-apple-system,'Pretendard','Malgun Gothic',sans-serif" font-size="62" font-weight="800" fill="url(#titlegrad1)" letter-spacing="-0.04em" filter="url(#textglow)">내가 한 일을</text>
+  <text x="60" y="290" font-family="-apple-system,'Pretendard','Malgun Gothic',sans-serif" font-size="62" font-weight="800" fill="url(#titlegrad2)" letter-spacing="-0.04em" filter="url(#textglow2)">날짜로.</text>
 
   <!-- sub -->
-  <text x="60" y="348" font-family="-apple-system,'Pretendard',sans-serif" font-size="17" fill="#6e6e73" letter-spacing="-0.01em">파일 수정일을 자동으로 읽어</text>
-  <text x="60" y="372" font-family="-apple-system,'Pretendard',sans-serif" font-size="17" fill="#6e6e73" letter-spacing="-0.01em">월 달력에 펼쳐 보여줍니다.</text>
+  <text x="60" y="330" font-family="-apple-system,'Pretendard',sans-serif" font-size="17" fill="#6e6e73" letter-spacing="-0.01em">파일 수정일을 자동으로 읽어</text>
+  <text x="60" y="354" font-family="-apple-system,'Pretendard',sans-serif" font-size="17" fill="#6e6e73" letter-spacing="-0.01em">월 달력에 펼쳐 보여줍니다.</text>
 
   <!-- features -->
-  <rect x="60" y="406" width="4" height="4" rx="2" fill="#0066cc"/>
-  <text x="74" y="411" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">수정일 기준 달력 자동 정렬</text>
+  <rect x="60" y="390" width="4" height="4" rx="2" fill="#0066cc"/>
+  <text x="74" y="395" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">수정일 기준 달력 자동 정렬</text>
 
-  <rect x="60" y="430" width="4" height="4" rx="2" fill="#0066cc"/>
-  <text x="74" y="435" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">HWP · DOC · XLS · PPT · PDF 배지</text>
+  <rect x="60" y="414" width="4" height="4" rx="2" fill="#0066cc"/>
+  <text x="74" y="419" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">HWP · DOC · XLS · PPT · PDF 배지</text>
 
-  <rect x="60" y="454" width="4" height="4" rx="2" fill="#0066cc"/>
-  <text x="74" y="459" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">NTFS MFT 직접 인덱싱 — 외부 앱 불필요</text>
+  <rect x="60" y="438" width="4" height="4" rx="2" fill="#0066cc"/>
+  <text x="74" y="443" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">NTFS MFT 직접 인덱싱 — 외부 앱 불필요</text>
 
-  <rect x="60" y="478" width="4" height="4" rx="2" fill="#0066cc"/>
-  <text x="74" y="483" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">완전 로컬 · 외부 서버 없음</text>
+  <rect x="60" y="462" width="4" height="4" rx="2" fill="#0066cc"/>
+  <text x="74" y="467" font-family="-apple-system,'Pretendard',sans-serif" font-size="14.5" fill="#3a3a3c">완전 로컬 · 외부 서버 없음</text>
 
   <!-- bottom brand -->
   <text x="60" y="560" font-family="-apple-system,'Pretendard',sans-serif" font-size="13" font-weight="700" fill="#0066cc">EveryDoing</text>
