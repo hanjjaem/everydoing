@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EveryDoing — 내가 한 일을, 날짜로</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #f0f2f8;
+  --ink-2: #8a8fa8;
+  --ink-3: #4a4f68;
+  --bg: #0a0c14;
+  --bg-2: #0e1120;
+  --surface: #13162280;
+  --border: #ffffff10;
+  --border-2: #ffffff18;
+  --blue: #3b82f6;
+  --blue-2: #1d4ed8;
+  --blue-glow: #3b82f630;
+  --sans: "Pretendard", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── HERO ─────────────────────────────── */
+.hero {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, #1e40af28 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 60%, #6d28d912 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 10% 80%, #0369a112 0%, transparent 55%);
+  pointer-events: none;
+}
+
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 80%);
+  pointer-events: none;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--ink-2);
+  letter-spacing: .02em;
+  margin-bottom: 32px;
+  backdrop-filter: blur(12px);
+  animation: fadeUp .6s ease both;
+}
+.badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+.hero h1 {
+  font-size: clamp(44px, 8vw, 88px);
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: 1.05;
+  text-align: center;
+  color: #fff;
+  animation: fadeUp .7s .1s ease both;
+}
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--blue) 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: clamp(16px, 2.5vw, 20px);
+  color: var(--ink-2);
+  text-align: center;
+  margin-top: 20px;
+  line-height: 1.65;
+  max-width: 480px;
+  animation: fadeUp .7s .2s ease both;
+}
+
+.cta-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 36px;
+  animation: fadeUp .7s .3s ease both;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 26px;
+  border-radius: 12px;
+  font: 600 15px/1 var(--sans);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform .15s, box-shadow .15s, background .15s;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 24px var(--blue-glow);
+}
+.btn-primary:hover { background: #2563eb; box-shadow: 0 6px 32px #3b82f640; }
+.btn-ghost {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-2);
+  backdrop-filter: blur(12px);
+}
+.btn-ghost:hover { background: #ffffff10; }
+
+/* ── APP MOCKUP ──────────────────────── */
+.mockup-wrap {
+  width: 100%;
+  max-width: 960px;
+  margin-top: 64px;
+  animation: fadeUp .8s .4s ease both;
+  position: relative;
+}
+
+.mockup-glow {
+  position: absolute;
+  inset: -60px;
+  background: radial-gradient(ellipse 60% 40% at 50% 50%, #3b82f620, transparent 70%);
+  pointer-events: none;
+  filter: blur(20px);
+}
+
+.mockup-window {
+  background: #11141f;
+  border-radius: 16px;
+  border: 1px solid var(--border-2);
+  box-shadow:
+    0 0 0 1px #ffffff06,
+    0 32px 80px #00000080,
+    0 8px 32px #00000060;
+  overflow: hidden;
+  position: relative;
+}
+
+.mockup-titlebar {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  background: #0d1018;
+  border-bottom: 1px solid #ffffff0d;
+  gap: 12px;
+}
+.titlebar-dots { display: flex; gap: 7px; }
+.titlebar-dots span {
+  width: 12px; height: 12px; border-radius: 50%;
+}
+.dot-r { background: #ff5f57; }
+.dot-y { background: #febc2e; }
+.dot-g { background: #28c840; }
+
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c0c8e0;
+  letter-spacing: -.01em;
+}
+.titlebar-brand-icon {
+  width: 18px; height: 18px;
+  background: var(--blue);
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+}
+
+.titlebar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.titlebar-btn {
+  padding: 5px 11px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  color: #6b7494;
+  border: 1px solid #ffffff0d;
+  background: #ffffff05;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+
+/* app body */
+.mockup-body {
+  display: flex;
+  height: 480px;
+}
+
+/* sidebar */
+.m-sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  background: #0e1120;
+  border-right: 1px solid #ffffff0d;
+  overflow: hidden;
+  padding: 14px 0;
+}
+.m-side-sec {
+  padding: 10px 16px;
+  border-bottom: 1px solid #ffffff07;
+  margin-bottom: 4px;
+}
+.m-side-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #3b4263;
+  margin-bottom: 10px;
+}
+.m-mininav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+.m-mininav span {
+  font-size: 11.5px;
+  color: #4a5278;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.m-mininav span.cur {
+  background: var(--blue);
+  color: #fff;
+  font-weight: 600;
+}
+.m-today {
+  width: 100%;
+  margin-top: 8px;
+  background: #1e2d5220;
+  border: none;
+  border-radius: 7px;
+  color: var(--blue);
+  font: 600 11.5px var(--sans);
+  padding: 6px 0;
+  cursor: pointer;
+}
+.m-folder { display: flex; align-items: center; gap: 7px; padding: 3px 0; }
+.m-folder-dot { width: 5px; height: 5px; border-radius: 1.5px; background: #3b4263; flex-shrink: 0; }
+.m-folder-text { font-size: 11.5px; color: #4a5278; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.m-stat-num { font-size: 22px; font-weight: 700; color: #c0c8e0; letter-spacing: -.02em; }
+.m-stat-lbl { font-size: 11px; color: #3b4263; margin-top: 1px; }
+
+.m-legend { display: flex; align-items: center; gap: 7px; padding: 2.5px 0; }
+.m-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.m-legend-text { font-size: 11px; color: #4a5278; }
+.m-legend-pct { font-size: 11px; color: #3b4263; margin-left: auto; }
+
+/* main calendar */
+.m-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.m-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid #ffffff0d;
+}
+.m-head-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -.025em;
+  color: #c0c8e0;
+}
+.m-head-title span { font-size: 12px; color: #3b4263; font-weight: 500; margin-left: 6px; }
+.m-nav-btn { background: none; border: none; color: #3b4263; font-size: 15px; cursor: pointer; padding: 4px 7px; border-radius: 6px; font-family: var(--sans); }
+.m-search {
+  background: #ffffff06;
+  border: 1px solid #ffffff0d;
+  border-radius: 999px;
+  color: #4a5278;
+  font: 11.5px var(--sans);
+  padding: 5px 12px;
+  width: 140px;
+}
+
+.m-weekhead {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 8px 0;
+  border-bottom: 1px solid #ffffff07;
+  background: #0d1018;
+}
+.m-wday {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: #2d3455;
+  text-align: left;
+  padding-left: 10px;
+}
+
+.m-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  background: #0a0c14;
+}
+
+.m-cell {
+  border-right: 1px solid #ffffff06;
+  border-bottom: 1px solid #ffffff06;
+  padding: 7px 9px;
+  position: relative;
+  cursor: pointer;
+  transition: background .1s;
+}
+.m-cell:nth-child(7n) { border-right: none; }
+.m-cell:hover { background: #ffffff04; }
+.m-cell.empty { opacity: .3; }
+.m-cell.today { background: #1e2d5215; }
+.m-cell.today::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid #3b82f630;
+  border-radius: 0;
+  pointer-events: none;
+}
+.m-cell.active { background: #1a2035; }
+
+.m-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3d4568;
+  line-height: 1;
+  margin-bottom: 5px;
+}
+.m-cell.today .m-date { color: var(--blue); }
+.m-cell.active .m-date { color: #8090c0; }
+
+.m-chips { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 3px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.chip-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+
+.chip-hwp  { background: #1e3a5220; color: #60a5fa; }  .chip-hwp  .chip-dot { background: #3b82f6; }
+.chip-doc  { background: #1e3a7820; color: #93c5fd; }  .chip-doc  .chip-dot { background: #2563eb; }
+.chip-xls  { background: #14352020; color: #6ee7b7; }  .chip-xls  .chip-dot { background: #10b981; }
+.chip-ppt  { background: #3b200e20; color: #fca5a5; }  .chip-ppt  .chip-dot { background: #ef4444; }
+.chip-pdf  { background: #3b150e20; color: #fda4af; }  .chip-pdf  .chip-dot { background: #f43f5e; }
+
+.m-count { font-size: 9.5px; color: #2d3455; }
+.m-memo { font-size: 9px; color: #2d3870; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── SECTIONS ─────────────────────────── */
+section { padding: 100px 24px; }
+
+.section-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 14px;
+}
+.section-title {
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  color: #fff;
+  margin-bottom: 16px;
+}
+.section-sub {
+  font-size: 17px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  max-width: 520px;
+}
+
+/* bento grid */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: 14px;
+  margin-top: 56px;
+}
+
+.bento-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: 20px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s, transform .2s;
+}
+.bento-card:hover {
+  border-color: #ffffff28;
+  transform: translateY(-2px);
+}
+
+.bento-card.span2 { grid-column: span 2; }
+.bento-card.tall  { grid-row: span 2; }
+
+.bento-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.bento-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e0e4f0;
+  letter-spacing: -.02em;
+  margin-bottom: 8px;
+}
+.bento-desc {
+  font-size: 14px;
+  color: var(--ink-3);
+  line-height: 1.65;
+}
+
+/* mini calendar preview inside card */
+.mini-cal {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.mc-day {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  background: #ffffff05;
+  position: relative;
+}
+.mc-day.has { background: #1e2d52; }
+.mc-day.has::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+.mc-day.busy { background: #1e3080; }
+.mc-day.today-mini { background: var(--blue); }
+
+/* data flow */
+.flow {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.flow-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #ffffff05;
+  border-radius: 10px;
+  border: 1px solid #ffffff08;
+  font-size: 13px;
+  color: #6b7494;
+}
+.flow-icon { font-size: 16px; }
+.flow-label { color: #8090b8; font-weight: 500; }
+.flow-badge {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #10b98120;
+  color: #34d399;
+}
+.flow-badge.off {
+  background: #ffffff08;
+  color: #3b4263;
+}
+
+/* chip demo */
+.chip-demo {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.chip-demo .chip-lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── SECURITY SECTION ─────────────────── */
+.security {
+  background: var(--bg-2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.security-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  margin-top: 0;
+}
+
+.flow-diagram {
+  background: #0a0c14;
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  padding: 28px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.9;
+  color: #3b4263;
+}
+.fd-b { color: #c0c8e0; font-weight: 600; }
+.fd-g { color: #22c55e; }
+.fd-r { color: #f87171; }
+.fd-blue { color: var(--blue); }
+.fd-dim { color: #22284a; }
+
+/* ── INSTALL ──────────────────────────── */
+.install-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 48px;
+}
+.install-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  padding: 28px;
+}
+.install-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #c0c8e0;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.install-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.step-num {
+  width: 22px; height: 22px;
+  border-radius: 7px;
+  background: #1e2d52;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.code-block {
+  background: #0a0c14;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12.5px;
+  color: #60a5fa;
+  margin-top: 16px;
+  line-height: 1.8;
+}
+.code-comment { color: #2d3a6a; }
+
+/* ── FOOTER ───────────────────────────── */
+footer {
+  padding: 48px 24px 60px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+.footer-inner { max-width: 960px; margin: 0 auto; }
+.footer-brand {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -.025em;
+  color: #fff;
+  margin-bottom: 8px;
+}
+.footer-brand em { font-style: normal; color: var(--blue); }
+.footer-sub { font-size: 13px; color: var(--ink-3); margin-bottom: 24px; }
+.footer-links { display: flex; justify-content: center; gap: 24px; }
+.footer-links a {
+  font-size: 13px;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color .15s;
+}
+.footer-links a:hover { color: var(--ink); }
+
+/* ── ANIMATIONS ───────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity .65s ease, transform .65s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* responsive */
+@media (max-width: 720px) {
+  .bento { grid-template-columns: 1fr; }
+  .bento-card.span2 { grid-column: span 1; }
+  .security-grid, .install-grid { grid-template-columns: 1fr; }
+  .mockup-body { height: 340px; }
+  .m-sidebar { width: 140px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <div class="badge">
+    <span class="badge-dot"></span>
+    Windows 전용 · 완전 로컬 · 외부 서버 없음
+  </div>
+
+  <h1>내가 한 일을<br><em>날짜로.</em></h1>
+
+  <p class="hero-sub">
+    업무 파일의 수정일을 자동으로 읽어<br>
+    월 달력에 펼쳐 보여줍니다.<br>
+    "그날 뭘 했더라"에 즉시 답합니다.
+  </p>
+
+  <div class="cta-row">
+    <a href="https://github.com/hanjjaem/everydoing" class="btn btn-primary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub에서 보기
+    </a>
+    <a href="#features" class="btn btn-ghost">
+      기능 살펴보기 ↓
+    </a>
+  </div>
+
+  <!-- APP MOCKUP -->
+  <div class="mockup-wrap">
+    <div class="mockup-glow"></div>
+    <div class="mockup-window">
+
+      <!-- titlebar -->
+      <div class="mockup-titlebar">
+        <div class="titlebar-dots">
+          <span class="dot-r"></span>
+          <span class="dot-y"></span>
+          <span class="dot-g"></span>
+        </div>
+        <div class="titlebar-brand">
+          <div class="titlebar-brand-icon">🗂</div>
+          EveryDoing
+        </div>
+        <div class="titlebar-actions">
+          <button class="titlebar-btn">새로고침</button>
+          <button class="titlebar-btn">월간 요약</button>
+          <button class="titlebar-btn">⚙</button>
+        </div>
+      </div>
+
+      <!-- body -->
+      <div class="mockup-body">
+
+        <!-- sidebar -->
+        <div class="m-sidebar">
+          <div class="m-side-sec">
+            <div class="m-side-label">연도</div>
+            <div class="m-mininav">
+              <span>1월</span><span>2월</span><span>3월</span><span>4월</span>
+              <span>5월</span><span class="cur">6월</span><span>7월</span><span>8월</span>
+              <span>9월</span><span>10월</span><span>11월</span><span>12월</span>
+            </div>
+            <button class="m-today">오늘로 이동</button>
+          </div>
+          <div class="m-side-sec">
+            <div class="m-side-label">스캔 폴더</div>
+            <div class="m-folder"><div class="m-folder-dot"></div><div class="m-folder-text">D:\업무\</div></div>
+            <div class="m-folder"><div class="m-folder-dot"></div><div class="m-folder-text">D:\보고서\</div></div>
+          </div>
+          <div class="m-side-sec">
+            <div class="m-side-label">이달 현황</div>
+            <div class="m-stat-num">12</div>
+            <div class="m-stat-lbl">활동일</div>
+            <div style="margin-top:10px;" class="m-stat-num">38</div>
+            <div class="m-stat-lbl">문서</div>
+          </div>
+          <div class="m-side-sec">
+            <div class="m-side-label">파일 종류</div>
+            <div class="m-legend"><div class="m-legend-dot" style="background:#3b82f6"></div><div class="m-legend-text">HWP</div><div class="m-legend-pct">45%</div></div>
+            <div class="m-legend"><div class="m-legend-dot" style="background:#2563eb"></div><div class="m-legend-text">DOC</div><div class="m-legend-pct">20%</div></div>
+            <div class="m-legend"><div class="m-legend-dot" style="background:#10b981"></div><div class="m-legend-text">XLS</div><div class="m-legend-pct">18%</div></div>
+            <div class="m-legend"><div class="m-legend-dot" style="background:#ef4444"></div><div class="m-legend-text">PPT</div><div class="m-legend-pct">10%</div></div>
+            <div class="m-legend"><div class="m-legend-dot" style="background:#f43f5e"></div><div class="m-legend-text">PDF</div><div class="m-legend-pct">7%</div></div>
+          </div>
+        </div>
+
+        <!-- main -->
+        <div class="m-main">
+          <div class="m-head">
+            <div style="display:flex;align-items:center;gap:6px">
+              <button class="m-nav-btn">‹</button>
+              <div class="m-head-title">6월<span>2026년</span></div>
+              <button class="m-nav-btn">›</button>
+            </div>
+            <input class="m-search" placeholder="파일명 검색…" readonly>
+          </div>
+          <div class="m-weekhead">
+            <div class="m-wday">일</div><div class="m-wday">월</div><div class="m-wday">화</div>
+            <div class="m-wday">수</div><div class="m-wday">목</div><div class="m-wday">금</div>
+            <div class="m-wday">토</div>
+          </div>
+          <div class="m-grid">
+            <!-- row 1: empty + 1~6 -->
+            <div class="m-cell empty"><div class="m-date">26</div></div>
+            <div class="m-cell empty"><div class="m-date">27</div></div>
+            <div class="m-cell empty"><div class="m-date">28</div></div>
+            <div class="m-cell"><div class="m-date">1</div></div>
+            <div class="m-cell active">
+              <div class="m-date">2</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span><span class="chip chip-pdf"><span class="chip-dot"></span>PDF</span></div>
+              <div class="m-count">3개</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">3</div>
+              <div class="m-chips"><span class="chip chip-xls"><span class="chip-dot"></span>XLS</span></div>
+              <div class="m-count">1개</div>
+            </div>
+            <div class="m-cell"><div class="m-date">4</div></div>
+            <!-- row 2: 5~11 -->
+            <div class="m-cell"><div class="m-date">5</div></div>
+            <div class="m-cell active">
+              <div class="m-date">6</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span><span class="chip chip-doc"><span class="chip-dot"></span>DOC</span></div>
+              <div class="m-count">2개</div>
+              <div class="m-memo">진행실적 취합</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">7</div>
+              <div class="m-chips"><span class="chip chip-ppt"><span class="chip-dot"></span>PPT</span><span class="chip chip-xls"><span class="chip-dot"></span>XLS</span></div>
+              <div class="m-count">4개</div>
+            </div>
+            <div class="m-cell"><div class="m-date">8</div></div>
+            <div class="m-cell active">
+              <div class="m-date">9</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span></div>
+              <div class="m-count">2개</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">10</div>
+              <div class="m-chips"><span class="chip chip-pdf"><span class="chip-dot"></span>PDF</span><span class="chip chip-doc"><span class="chip-dot"></span>DOC</span></div>
+              <div class="m-count">3개</div>
+              <div class="m-memo">보고서 검토</div>
+            </div>
+            <div class="m-cell"><div class="m-date">11</div></div>
+            <!-- row 3: 12~18 -->
+            <div class="m-cell"><div class="m-date">12</div></div>
+            <div class="m-cell active">
+              <div class="m-date">13</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span><span class="chip chip-xls"><span class="chip-dot"></span>XLS</span></div>
+              <div class="m-count">5개</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">14</div>
+              <div class="m-chips"><span class="chip chip-doc"><span class="chip-dot"></span>DOC</span></div>
+              <div class="m-count">1개</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">15</div>
+              <div class="m-chips"><span class="chip chip-ppt"><span class="chip-dot"></span>PPT</span><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span></div>
+              <div class="m-count">3개</div>
+              <div class="m-memo">기획안 1차</div>
+            </div>
+            <div class="m-cell today" id="today-cell">
+              <div class="m-date">16 ★</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span><span class="chip chip-xls"><span class="chip-dot"></span>XLS</span><span class="chip chip-pdf"><span class="chip-dot"></span>PDF</span></div>
+              <div class="m-count">4개</div>
+            </div>
+            <div class="m-cell"><div class="m-date">17</div></div>
+            <div class="m-cell"><div class="m-date">18</div></div>
+            <!-- row 4: 19~25 -->
+            <div class="m-cell"><div class="m-date">19</div></div>
+            <div class="m-cell active">
+              <div class="m-date">20</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span></div>
+              <div class="m-count">2개</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">21</div>
+              <div class="m-chips"><span class="chip chip-xls"><span class="chip-dot"></span>XLS</span><span class="chip chip-doc"><span class="chip-dot"></span>DOC</span></div>
+              <div class="m-count">3개</div>
+            </div>
+            <div class="m-cell"><div class="m-date">22</div></div>
+            <div class="m-cell active">
+              <div class="m-date">23</div>
+              <div class="m-chips"><span class="chip chip-pdf"><span class="chip-dot"></span>PDF</span></div>
+              <div class="m-count">1개</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">24</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span><span class="chip chip-ppt"><span class="chip-dot"></span>PPT</span></div>
+              <div class="m-count">2개</div>
+              <div class="m-memo">월말 정리</div>
+            </div>
+            <div class="m-cell"><div class="m-date">25</div></div>
+            <!-- row 5: 26~30 -->
+            <div class="m-cell"><div class="m-date">26</div></div>
+            <div class="m-cell active">
+              <div class="m-date">27</div>
+              <div class="m-chips"><span class="chip chip-doc"><span class="chip-dot"></span>DOC</span></div>
+              <div class="m-count">1개</div>
+            </div>
+            <div class="m-cell"><div class="m-date">28</div></div>
+            <div class="m-cell active">
+              <div class="m-date">29</div>
+              <div class="m-chips"><span class="chip chip-hwp"><span class="chip-dot"></span>HWP</span><span class="chip chip-xls"><span class="chip-dot"></span>XLS</span></div>
+              <div class="m-count">3개</div>
+            </div>
+            <div class="m-cell active">
+              <div class="m-date">30</div>
+              <div class="m-chips"><span class="chip chip-pdf"><span class="chip-dot"></span>PDF</span></div>
+              <div class="m-count">1개</div>
+            </div>
+            <div class="m-cell empty"><div class="m-date">1</div></div>
+            <div class="m-cell empty"><div class="m-date">2</div></div>
+          </div>
+        </div>
+
+      </div><!-- /mockup-body -->
+    </div><!-- /mockup-window -->
+  </div><!-- /mockup-wrap -->
+
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-label">Features</div>
+      <h2 class="section-title">필요한 것만.<br>빠르게.</h2>
+      <p class="section-sub">복잡한 설정 없이 스캔 폴더만 지정하면 됩니다. 나머지는 EveryDoing이 합니다.</p>
+    </div>
+
+    <div class="bento reveal">
+
+      <!-- 달력 색인 -->
+      <div class="bento-card span2">
+        <div class="bento-icon" style="background:#1e2d52;">📅</div>
+        <div class="bento-title">수정일 기준 달력</div>
+        <div class="bento-desc">파일 수정일을 읽어 월 달력에 자동 배치합니다. 어느 날 어떤 문서를 건드렸는지 한눈에 확인합니다.</div>
+        <div class="mini-cal" style="margin-top:20px;">
+          <!-- 5×7 grid 35 cells -->
+          <div class="mc-day"></div><div class="mc-day"></div><div class="mc-day"></div>
+          <div class="mc-day has"></div><div class="mc-day has"></div><div class="mc-day"></div><div class="mc-day"></div>
+          <div class="mc-day"></div><div class="mc-day has"></div><div class="mc-day busy"></div>
+          <div class="mc-day"></div><div class="mc-day has"></div><div class="mc-day has"></div><div class="mc-day"></div>
+          <div class="mc-day"></div><div class="mc-day has"></div><div class="mc-day has"></div>
+          <div class="mc-day today-mini"></div><div class="mc-day has"></div><div class="mc-day has"></div><div class="mc-day"></div>
+          <div class="mc-day"></div><div class="mc-day busy"></div><div class="mc-day has"></div>
+          <div class="mc-day"></div><div class="mc-day has"></div><div class="mc-day"></div><div class="mc-day"></div>
+          <div class="mc-day"></div><div class="mc-day has"></div><div class="mc-day"></div>
+          <div class="mc-day has"></div><div class="mc-day has"></div><div class="mc-day"></div><div class="mc-day"></div>
+        </div>
+      </div>
+
+      <!-- MFT -->
+      <div class="bento-card">
+        <div class="bento-icon" style="background:#0f1f0f;">⚡</div>
+        <div class="bento-title">NTFS MFT 직접 인덱싱</div>
+        <div class="bento-desc">Everything 같은 외부 앱 없이 NTFS MFT를 직접 순회합니다. 수만 개 파일도 빠르게 색인합니다.</div>
+      </div>
+
+      <!-- 로컬 데이터 -->
+      <div class="bento-card tall">
+        <div class="bento-icon" style="background:#1a0f0f;">🔒</div>
+        <div class="bento-title">완전 로컬</div>
+        <div class="bento-desc">색인·달력·메모·통계 모두 이 PC에서만 처리됩니다. 기본 상태에서 외부 통신이 전혀 없습니다.</div>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-icon">🗂</span><span class="flow-label">파일 색인</span><span class="flow-badge">로컬</span></div>
+          <div class="flow-row"><span class="flow-icon">📝</span><span class="flow-label">메모 저장</span><span class="flow-badge">로컬</span></div>
+          <div class="flow-row"><span class="flow-icon">📊</span><span class="flow-label">월간 통계</span><span class="flow-badge">로컬</span></div>
+          <div class="flow-row"><span class="flow-icon">✨</span><span class="flow-label">AI 총평</span><span class="flow-badge off">선택 · 기본 꺼짐</span></div>
+        </div>
+      </div>
+
+      <!-- 파일 종류 배지 -->
+      <div class="bento-card">
+        <div class="bento-icon" style="background:#1a1a0f;">🏷</div>
+        <div class="bento-title">파일 종류 배지</div>
+        <div class="bento-desc">HWP·DOC·XLS·PPT·PDF를 색상 배지로 구분합니다. 어떤 종류의 작업을 했는지 즉시 파악.</div>
+        <div class="chip-demo">
+          <span class="chip chip-lg chip-hwp"><span class="chip-dot"></span>HWP</span>
+          <span class="chip chip-lg chip-doc"><span class="chip-dot"></span>DOC</span>
+          <span class="chip chip-lg chip-xls"><span class="chip-dot"></span>XLS</span>
+          <span class="chip chip-lg chip-ppt"><span class="chip-dot"></span>PPT</span>
+          <span class="chip chip-lg chip-pdf"><span class="chip-dot"></span>PDF</span>
+        </div>
+      </div>
+
+      <!-- 한 줄 메모 -->
+      <div class="bento-card">
+        <div class="bento-icon" style="background:#0f1520;">✏️</div>
+        <div class="bento-title">한 줄 메모</div>
+        <div class="bento-desc">날짜 칸 빈 곳을 클릭하면 바로 메모를 입력합니다. 로컬에 저장되고 언제든 수정합니다.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- SECURITY -->
+<section class="security">
+  <div class="section-inner">
+    <div class="security-grid">
+      <div class="reveal">
+        <div class="section-label">Privacy</div>
+        <h2 class="section-title">끄면<br>외부 통신 0.</h2>
+        <p class="section-sub">
+          AI 총평은 선택 기능입니다. 꺼두면 이 앱은 인터넷에 아무것도 보내지 않습니다.
+          켜더라도 파일명만, 매번 동의할 때만 전송합니다.
+        </p>
+      </div>
+      <div class="flow-diagram reveal">
+        <div><span class="fd-b">PC 내 파일</span></div>
+        <div class="fd-dim">  │  NTFS MFT 직접 순회</div>
+        <div class="fd-dim">  ▼</div>
+        <div><span class="fd-g">index.json</span> <span class="fd-dim">── 달력 렌더링</span></div>
+        <div class="fd-dim">  │  로컬에만 저장</div>
+        <div class="fd-dim">  ▼</div>
+        <div><span class="fd-g">memos.json</span></div>
+        <div><span class="fd-g">config.json</span></div>
+        <br>
+        <div><span class="fd-dim">─────────────────────</span></div>
+        <div><span class="fd-blue">AI 총평</span> <span class="fd-dim">(기본 꺼짐)</span></div>
+        <div class="fd-dim">  │  사용자가 직접 켬</div>
+        <div class="fd-dim">  │  매 전송마다 confirm</div>
+        <div class="fd-dim">  │  파일명만 전송</div>
+        <div class="fd-dim">  ▼</div>
+        <div><span class="fd-r">OpenAI API</span> <span class="fd-dim">← BYOK (본인 키)</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section>
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-label">Install</div>
+      <h2 class="section-title">빌드하고<br>바로 씁니다.</h2>
+      <p class="section-sub">관리자 터미널 하나면 됩니다.</p>
+    </div>
+    <div class="install-grid reveal">
+      <div class="install-card">
+        <h3>⚙ 사전 요구사항</h3>
+        <div class="install-step"><div class="step-num">1</div><div>Windows 10 / 11 (x64)</div></div>
+        <div class="install-step"><div class="step-num">2</div><div>Rust 1.77+ — <a href="https://rustup.rs" style="color:var(--blue);text-decoration:none;">rustup.rs</a></div></div>
+        <div class="install-step"><div class="step-num">3</div><div>Visual Studio Build Tools + WebView2 (Tauri 2 요구사항)</div></div>
+        <div class="install-step"><div class="step-num">4</div><div>관리자 권한 — MFT 원시 접근에 필요</div></div>
+      </div>
+      <div class="install-card">
+        <h3>🚀 개발 / 배포</h3>
+        <div class="code-block">
+          <div class="code-comment"># 저장소 클론</div>
+          <div>git clone https://github.com/hanjjaem/everydoing</div>
+          <br>
+          <div class="code-comment"># 개발 실행 (관리자 터미널)</div>
+          <div style="color:#60a5fa;">cargo tauri dev</div>
+          <br>
+          <div class="code-comment"># 배포 빌드 (NSIS 설치본)</div>
+          <div style="color:#60a5fa;">cargo tauri build</div>
+        </div>
+        <div style="margin-top:14px; font-size:13px; color:var(--ink-3);">설정 파일: <code style="color:var(--ink-2);background:#ffffff08;padding:2px 6px;border-radius:5px;">%APPDATA%\EveryDoing\config.json</code></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">Every<em>Doing</em></div>
+    <div class="footer-sub">내가 한 일을, 날짜로. — 완전 로컬 Windows 데스크톱 앱</div>
+    <div class="footer-links">
+      <a href="https://github.com/hanjjaem/everydoing">GitHub</a>
+      <a href="https://github.com/hanjjaem/everydoing/blob/main/LICENSE">License (BSL 1.1)</a>
+      <a href="https://github.com/hanjjaem/everydoing/issues">Issues</a>
+    </div>
+    <div style="margin-top:28px; font-size:12px; color:var(--ink-3);">© 2026 한쨈 · BSL 1.1 → Apache 2.0 (2030-06-29)</div>
+  </div>
+</footer>
+
+<script>
+// scroll reveal
+const observer = new IntersectionObserver(
+  entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+  { threshold: 0.1 }
+);
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
