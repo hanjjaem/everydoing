@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::io::Write;
+use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 use crate::indexer::ScanResult;
 
@@ -73,31 +75,48 @@ fn memos_path() -> PathBuf { let mut p = data_dir(); p.push("memos.json"); p }
 fn index_path() -> PathBuf { let mut p = data_dir(); p.push("index.json"); p }
 fn summaries_path() -> PathBuf { let mut p = data_dir(); p.push("summaries.json"); p }
 
-pub fn load_summaries() -> BTreeMap<String, String> {
-    match std::fs::read_to_string(summaries_path()) {
-        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
-        Err(_) => BTreeMap::new(),
+fn load_map(path: &std::path::Path) -> Result<BTreeMap<String, String>, String> {
+    match std::fs::read_to_string(path) {
+        Ok(s) => serde_json::from_str(&s).map_err(|e| format!("{} 파일을 읽을 수 없습니다: {}", path.display(), e)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeMap::new()),
+        Err(e) => Err(format!("{} 파일을 읽을 수 없습니다: {}", path.display(), e)),
     }
 }
 
+// Write next to the original and replace it only after the complete data is on disk.
+fn write_json<T: Serialize>(path: &std::path::Path, value: &T) -> Result<(), String> {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
+    let id = NEXT.fetch_add(1, Ordering::Relaxed);
+    let temp = path.with_extension(format!("tmp-{}-{}", std::process::id(), id));
+    let result = (|| -> std::io::Result<()> {
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&temp)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temp, path)
+    })();
+    if result.is_err() { let _ = std::fs::remove_file(&temp); }
+    result.map_err(|e| format!("{} 파일을 저장할 수 없습니다: {}", path.display(), e))
+}
+
+pub fn load_summaries() -> Result<BTreeMap<String, String>, String> {
+    load_map(&summaries_path())
+}
+
 pub fn save_summaries(summaries: &BTreeMap<String, String>) -> Result<(), String> {
-    let s = serde_json::to_string_pretty(summaries).map_err(|e| e.to_string())?;
-    std::fs::write(summaries_path(), s).map_err(|e| e.to_string())
+    write_json(&summaries_path(), summaries)
 }
 
 fn monthly_summaries_path() -> PathBuf { let mut p = data_dir(); p.push("monthly_summaries.json"); p }
 
 /// 월별 총평(키 "YYYY-MM" → 줄글 텍스트) 로드.
-pub fn load_monthly_summaries() -> BTreeMap<String, String> {
-    match std::fs::read_to_string(monthly_summaries_path()) {
-        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
-        Err(_) => BTreeMap::new(),
-    }
+pub fn load_monthly_summaries() -> Result<BTreeMap<String, String>, String> {
+    load_map(&monthly_summaries_path())
 }
 
 pub fn save_monthly_summaries(m: &BTreeMap<String, String>) -> Result<(), String> {
-    let s = serde_json::to_string_pretty(m).map_err(|e| e.to_string())?;
-    std::fs::write(monthly_summaries_path(), s).map_err(|e| e.to_string())
+    write_json(&monthly_summaries_path(), m)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -109,17 +128,24 @@ struct IndexCache {
 }
 
 pub fn save_index(cfg: &Config, result: &ScanResult) -> Result<(), String> {
+    save_index_at(&index_path(), cfg, result)
+}
+
+fn save_index_at(path: &std::path::Path, cfg: &Config, result: &ScanResult) -> Result<(), String> {
     let cache = IndexCache {
         scan_paths: cfg.scan_paths.clone(),
         extensions: cfg.extensions.clone(),
         result: result.clone(),
     };
-    let s = serde_json::to_string_pretty(&cache).map_err(|e| e.to_string())?;
-    std::fs::write(index_path(), s).map_err(|e| e.to_string())
+    write_json(path, &cache)
 }
 
 pub fn load_index(cfg: &Config) -> Option<ScanResult> {
-    let s = std::fs::read_to_string(index_path()).ok()?;
+    load_index_at(&index_path(), cfg)
+}
+
+fn load_index_at(path: &std::path::Path, cfg: &Config) -> Option<ScanResult> {
+    let s = std::fs::read_to_string(path).ok()?;
     let cache: IndexCache = serde_json::from_str(&s).ok()?;
     if cache.scan_paths != cfg.scan_paths || cache.extensions != cfg.extensions {
         return None;
@@ -127,37 +153,38 @@ pub fn load_index(cfg: &Config) -> Option<ScanResult> {
     Some(cache.result)
 }
 
-pub fn load_config() -> Config {
+pub fn load_config() -> Result<Config, String> {
     match std::fs::read_to_string(config_path()) {
-        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
-        Err(_) => {
-            let c = Config::default();
-            let _ = save_config(c.clone());
-            c
-        }
+        Ok(s) => serde_json::from_str(&s).map_err(|e| format!("설정 파일을 읽을 수 없습니다: {}", e)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config::default()),
+        Err(e) => Err(format!("설정 파일을 읽을 수 없습니다: {}", e)),
     }
 }
 
 pub fn save_config(cfg: Config) -> Result<(), String> {
-    let s = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
-    std::fs::write(config_path(), s).map_err(|e| e.to_string())
+    write_json(&config_path(), &cfg)
 }
 
-pub fn load_memos() -> BTreeMap<String, String> {
-    match std::fs::read_to_string(memos_path()) {
-        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
-        Err(_) => BTreeMap::new(),
-    }
+pub fn load_memos() -> Result<BTreeMap<String, String>, String> {
+    load_map(&memos_path())
 }
 
 pub fn save_memos(memos: &BTreeMap<String, String>) -> Result<(), String> {
-    let s = serde_json::to_string_pretty(memos).map_err(|e| e.to_string())?;
-    std::fs::write(memos_path(), s).map_err(|e| e.to_string())
+    write_json(&memos_path(), memos)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn corrupt_memo_data_is_reported_without_overwriting_it() {
+        let path = std::env::temp_dir().join(format!("everydoing-corrupt-{}.json", std::process::id()));
+        std::fs::write(&path, "{broken").unwrap();
+        assert!(load_map(&path).is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{broken");
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn ext_strips_dot_and_lowercases() {
@@ -218,9 +245,11 @@ mod tests {
             path: "D:\\test\\a.pdf".to_string(),
         }]);
         let result = ScanResult { files, skipped: vec![] };
-        save_index(&cfg, &result).unwrap();
-        let loaded = load_index(&cfg).unwrap();
+        let path = std::env::temp_dir().join(format!("everydoing-index-roundtrip-{}.json", std::process::id()));
+        save_index_at(&path, &cfg, &result).unwrap();
+        let loaded = load_index_at(&path, &cfg).unwrap();
         assert_eq!(loaded.files["2026-06-29"][0].name, "a.pdf");
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -238,7 +267,9 @@ mod tests {
             ..Default::default()
         };
         let result = ScanResult { files: BTreeMap::new(), skipped: vec![] };
-        save_index(&cfg_a, &result).unwrap();
-        assert!(load_index(&cfg_b).is_none());
+        let path = std::env::temp_dir().join(format!("everydoing-index-invalidated-{}.json", std::process::id()));
+        save_index_at(&path, &cfg_a, &result).unwrap();
+        assert!(load_index_at(&path, &cfg_b).is_none());
+        std::fs::remove_file(path).unwrap();
     }
 }

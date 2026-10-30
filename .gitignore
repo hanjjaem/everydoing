@@ -23,3 +23,7 @@ src-tauri/target/
 
 .claude/
 C:\Users\user\AppData\Local\Temp\tauri_dev_log.txt
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md

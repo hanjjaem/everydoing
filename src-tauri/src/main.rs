@@ -7,10 +7,15 @@ mod summarizer;
 use std::collections::BTreeMap;
 use indexer::ScanResult;
 use tauri::{AppHandle, Emitter};
+use std::sync::Mutex;
+
+static MEMO_WRITE: Mutex<()> = Mutex::new(());
+static SUMMARY_WRITE: Mutex<()> = Mutex::new(());
+static MONTHLY_WRITE: Mutex<()> = Mutex::new(());
 
 #[tauri::command]
 fn load_cache() -> Option<ScanResult> {
-    let cfg = store::load_config();
+    let cfg = store::load_config().ok()?;
     store::load_index(&cfg)
 }
 
@@ -20,25 +25,45 @@ fn is_drive_root(path: &str) -> bool {
 }
 
 #[tauri::command]
-async fn start_scan(app: AppHandle) {
-    let cfg = store::load_config();
-    let use_mft = cfg.scan_paths.iter().any(|p| is_drive_root(p));
-    let result = tauri::async_runtime::spawn_blocking({
+async fn start_scan(app: AppHandle) -> Result<(), String> {
+    let cfg = store::load_config()?;
+    let scanned_cfg = cfg.clone();
+    let mut result = tauri::async_runtime::spawn_blocking({
         let app2 = app.clone();
         move || {
-            if use_mft {
-                indexer::scan(&cfg, &app2)
-            } else {
-                indexer::scan_walk_with_progress(&cfg, &app2)
+            let roots: Vec<_> = cfg.scan_paths.iter().filter(|p| is_drive_root(p)).cloned().collect();
+            let folders: Vec<_> = cfg.scan_paths.iter()
+                .filter(|p| !is_drive_root(p) && !indexer::path_matches(p, &roots))
+                .cloned().collect();
+            let mut combined = ScanResult { files: BTreeMap::new(), skipped: Vec::new() };
+            if !roots.is_empty() {
+                let mut root_cfg = cfg.clone();
+                root_cfg.scan_paths = roots;
+                let result = indexer::scan(&root_cfg, &app2);
+                combined.files = result.files;
+                combined.skipped = result.skipped;
             }
+            if !folders.is_empty() {
+                let mut folder_cfg = cfg;
+                folder_cfg.scan_paths = folders;
+                let result = indexer::scan_walk_with_progress(&folder_cfg, &app2);
+                for (date, files) in result.files { combined.files.entry(date).or_default().extend(files); }
+                combined.skipped.extend(result.skipped);
+            }
+            combined
         }
-    }).await.unwrap_or_else(|_| ScanResult {
-        files: BTreeMap::new(),
-        skipped: vec!["스캔 스레드 오류".to_string()],
-    });
-    let cfg = store::load_config();
-    let _ = store::save_index(&cfg, &result);
-    let _ = app.emit("scan-done", result);
+    }).await.map_err(|e| format!("스캔 작업 오류: {}", e))?;
+    let cfg = store::load_config()?;
+    if cfg.scan_paths != scanned_cfg.scan_paths || cfg.extensions != scanned_cfg.extensions {
+        return Err("스캔 중 설정이 변경되었습니다. 다시 스캔해 주세요.".into());
+    }
+    if result.skipped.is_empty() {
+        if let Err(e) = store::save_index(&scanned_cfg, &result) {
+            result.skipped.push(format!("캐시 저장 실패: {}", e));
+        }
+    }
+    app.emit("scan-done", result).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -66,7 +91,7 @@ fn pick_folder() -> Result<Option<String>, String> {
 
 #[tauri::command]
 fn get_config() -> Result<store::Config, String> {
-    Ok(store::load_config())
+    store::load_config()
 }
 
 #[tauri::command]
@@ -77,7 +102,7 @@ fn save_config(
     ai_summary_enabled: Option<bool>,
 ) -> Result<(), String> {
     let (paths, exts) = store::validate_config(scan_paths, extensions)?;
-    let mut cfg = store::load_config();
+    let mut cfg = store::load_config()?;
     cfg.scan_paths = paths;
     cfg.extensions = exts;
     if let Some(key) = openai_api_key {
@@ -90,13 +115,14 @@ fn save_config(
 }
 
 #[tauri::command]
-fn get_summaries() -> BTreeMap<String, String> {
+fn get_summaries() -> Result<BTreeMap<String, String>, String> {
     store::load_summaries()
 }
 
 #[tauri::command]
 fn save_summary(date: String, text: String) -> Result<(), String> {
-    let mut s = store::load_summaries();
+    let _guard = SUMMARY_WRITE.lock().map_err(|e| e.to_string())?;
+    let mut s = store::load_summaries()?;
     let trimmed = text.trim().to_string();
     if trimmed.is_empty() { s.remove(&date); } else { s.insert(date, trimmed); }
     store::save_summaries(&s)
@@ -104,7 +130,7 @@ fn save_summary(date: String, text: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn generate_summaries() -> Result<BTreeMap<String, String>, String> {
-    let cfg = store::load_config();
+    let cfg = store::load_config()?;
     // 전송 게이트: 기능이 꺼져 있으면 어떤 데이터도 외부로 내보내지 않는다.
     if !cfg.ai_summary_enabled {
         return Err("AI 요약이 꺼져 있습니다. 설정에서 켜야 사용할 수 있습니다".into());
@@ -120,19 +146,22 @@ async fn generate_summaries() -> Result<BTreeMap<String, String>, String> {
         .iter()
         .map(|(date, files)| (date.clone(), files.iter().map(|f| f.name.clone()).collect()))
         .collect();
-    let summaries = summarizer::summarize_dates(&files_by_date, &cfg.openai_api_key).await;
-    let _ = store::save_summaries(&summaries);
+    let generated = summarizer::summarize_dates(&files_by_date, &cfg.openai_api_key).await?;
+    let _guard = SUMMARY_WRITE.lock().map_err(|e| e.to_string())?;
+    let mut summaries = store::load_summaries()?;
+    summaries.extend(generated.into_iter().filter(|(date, _)| files_by_date.contains_key(date)));
+    store::save_summaries(&summaries)?;
     Ok(summaries)
 }
 
 #[tauri::command]
-fn get_monthly_summaries() -> BTreeMap<String, String> {
+fn get_monthly_summaries() -> Result<BTreeMap<String, String>, String> {
     store::load_monthly_summaries()
 }
 
 #[tauri::command]
 async fn generate_monthly_summary(year: i32, month: u32) -> Result<String, String> {
-    let cfg = store::load_config();
+    let cfg = store::load_config()?;
     // 전송 게이트: 기능이 꺼져 있으면 어떤 데이터도 외부로 내보내지 않는다.
     if !cfg.ai_summary_enabled {
         return Err("AI 요약이 꺼져 있습니다. 설정에서 켜야 사용할 수 있습니다".into());
@@ -152,20 +181,28 @@ async fn generate_monthly_summary(year: i32, month: u32) -> Result<String, Strin
         .collect();
     let ym_label = format!("{}년 {}월", year, month);
     let text = summarizer::summarize_month(&files_by_date, &ym_label, &cfg.openai_api_key).await?;
-    let mut all = store::load_monthly_summaries();
+    let _guard = MONTHLY_WRITE.lock().map_err(|e| e.to_string())?;
+    let mut all = store::load_monthly_summaries()?;
     all.insert(prefix, text.clone());
-    let _ = store::save_monthly_summaries(&all);
+    store::save_monthly_summaries(&all)?;
     Ok(text)
 }
 
 #[tauri::command]
 fn prune_deleted() -> Option<ScanResult> {
-    let cfg = store::load_config();
+    let cfg = store::load_config().ok()?;
     let mut result = store::load_index(&cfg)?;
+    // A disconnected or inaccessible scan root must not be treated as deleted files.
+    if cfg.scan_paths.iter().any(|path| std::fs::metadata(path).is_err()) {
+        return Some(result);
+    }
     let mut changed = false;
     for files in result.files.values_mut() {
         let before = files.len();
-        files.retain(|f| std::path::Path::new(&f.path).exists());
+        files.retain(|f| match std::fs::metadata(&f.path) {
+            Ok(_) => true,
+            Err(e) => e.kind() != std::io::ErrorKind::NotFound,
+        });
         if files.len() != before { changed = true; }
     }
     result.files.retain(|_, files| !files.is_empty());
@@ -175,13 +212,14 @@ fn prune_deleted() -> Option<ScanResult> {
 
 #[tauri::command]
 fn get_memos() -> Result<BTreeMap<String, String>, String> {
-    Ok(store::load_memos())
+    store::load_memos()
 }
 
 #[tauri::command]
 fn save_memo(date: String, text: String) -> Result<(), String> {
     if date.is_empty() { return Err("date 필요".into()); }
-    let memos = store::set_memo(&store::load_memos(), &date, &text);
+    let _guard = MEMO_WRITE.lock().map_err(|e| e.to_string())?;
+    let memos = store::set_memo(&store::load_memos()?, &date, &text);
     store::save_memos(&memos)
 }
 

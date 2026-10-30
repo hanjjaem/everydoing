@@ -114,8 +114,9 @@ async function load() {
   loaded = true;
   console.log("[load] 시작");
   const msg = document.getElementById("msg");
-  try { memos = await invoke("get_memos"); } catch (_) { memos = {}; }
-  try { scanPaths = (await invoke("get_config")).scan_paths || []; } catch (_) { scanPaths = []; }
+  try { memos = await invoke("get_memos"); } catch (e) { memos = {}; alert("메모를 불러오지 못했습니다: " + e); }
+  try { scanPaths = (await invoke("get_config")).scan_paths || []; }
+  catch (e) { msg.textContent = "설정을 불러오지 못했습니다: " + e; return; }
   console.log("[load] scan_paths:", scanPaths);
 
   if (scanPaths.length === 0) {
@@ -131,8 +132,8 @@ async function load() {
   console.log("[load] 캐시:", cached ? `있음 (날짜 ${Object.keys(cached.files||{}).length}개)` : "없음");
   if (cached) {
     data = cached.files || {};
-    summaries = await invoke("get_summaries").catch(() => ({}));
-    monthlySummaries = await invoke("get_monthly_summaries").catch(() => ({}));
+    summaries = await invoke("get_summaries").catch(e => { alert("일별 요약을 불러오지 못했습니다: " + e); return {}; });
+    monthlySummaries = await invoke("get_monthly_summaries").catch(e => { alert("월간 요약을 불러오지 못했습니다: " + e); return {}; });
     msg.textContent = "";
     animateNext = true;
     renderAll();
@@ -170,40 +171,53 @@ async function startScan() {
     elapsed.textContent = `${secs}초째 진행 중`;
   }, 1000);
 
-  const unlistenProgress = await listen("scan-progress", (e) => {
-    const { drive, scanned, total, matched } = e.payload;
-    label.textContent = `${drive} 스캔 중`;
-    sub.textContent = `파일 ${matched.toLocaleString()}개 발견`;
-    if (total > 0) {
-      bar.classList.remove("pulse");
-      bar.style.transition = "width 0.4s ease";
-      bar.style.width = Math.round((scanned / total) * 100) + "%";
-    }
-  });
-
-  const unlistenDone = await listen("scan-done", async (e) => {
+  let unlistenProgress = () => {};
+  let unlistenDone = () => {};
+  const finishScan = () => {
     clearInterval(timer);
     unlistenProgress();
     unlistenDone();
     scanning = false;
     wrap.style.display = "none";
-    const result = e.payload;
-    data = result.files || {};
-    const totalFiles = Object.values(data).reduce((s, arr) => s + arr.length, 0);
-    if (result.skipped && result.skipped.length > 0) {
-      msg.textContent = "건너뛴 드라이브: " + result.skipped.join(", ");
-    } else {
-      msg.textContent = "";
-    }
-    animateNext = true;
-    renderAll();
-    // 스캔 후 자동 전송하지 않음. AI 요약은 사용자가 명시적으로 생성할 때만 동작.
-    summaries = await invoke("get_summaries").catch(() => summaries);
-    monthlySummaries = await invoke("get_monthly_summaries").catch(() => monthlySummaries);
-    renderAll();
-  });
+  };
 
-  await invoke("start_scan").catch((e) => console.error("[startScan] invoke 오류:", e));
+  try {
+    unlistenProgress = await listen("scan-progress", (e) => {
+      const { drive, scanned, total, matched } = e.payload;
+      label.textContent = `${drive} 스캔 중`;
+      sub.textContent = `파일 ${matched.toLocaleString()}개 발견`;
+      if (total > 0) {
+        bar.classList.remove("pulse");
+        bar.style.transition = "width 0.4s ease";
+        bar.style.width = Math.round((scanned / total) * 100) + "%";
+      }
+    });
+
+    unlistenDone = await listen("scan-done", async (e) => {
+      finishScan();
+      const result = e.payload;
+      data = result.files || {};
+      const totalFiles = Object.values(data).reduce((s, arr) => s + arr.length, 0);
+      if (result.skipped && result.skipped.length > 0) {
+        const extra = result.skipped.length > 3 ? ` 외 ${result.skipped.length - 3}건` : "";
+        msg.textContent = "일부 스캔 또는 캐시 저장 실패: " + result.skipped.slice(0, 3).join(", ") + extra;
+      } else {
+        msg.textContent = "";
+      }
+      animateNext = true;
+      renderAll();
+      // 스캔 후 자동 전송하지 않음. AI 요약은 사용자가 명시적으로 생성할 때만 동작.
+      summaries = await invoke("get_summaries").catch(e => { alert("일별 요약을 불러오지 못했습니다: " + e); return summaries; });
+      monthlySummaries = await invoke("get_monthly_summaries").catch(e => { alert("월간 요약을 불러오지 못했습니다: " + e); return monthlySummaries; });
+      renderAll();
+    });
+
+    await invoke("start_scan");
+  } catch (e) {
+    finishScan();
+    console.error("[startScan] 오류:", e);
+    msg.textContent = "스캔을 시작하지 못했습니다. 다시 시도해 주세요.";
+  }
 }
 
 function key(y, m, d) {
@@ -307,8 +321,10 @@ function render() {
           const commit = async () => {
             const val = input.value.trim();
             if (val !== summaries[cellKey]) {
-              summaries[cellKey] = val;
-              await invoke("save_summary", { date: cellKey, text: val }).catch(() => {});
+              try {
+                await invoke("save_summary", { date: cellKey, text: val });
+                if (val) summaries[cellKey] = val; else delete summaries[cellKey];
+              } catch (e) { alert("요약을 저장하지 못했습니다: " + e + "\n입력한 내용: " + val); }
             }
             render();
           };
@@ -363,9 +379,13 @@ function startMemoEdit(cell, cellKey) {
 
 async function saveMemo(cellKey, text) {
   const trimmed = text.trim();
-  if (trimmed) memos[cellKey] = trimmed; else delete memos[cellKey];
+  try {
+    await invoke("save_memo", { date: cellKey, text: trimmed });
+    if (trimmed) memos[cellKey] = trimmed; else delete memos[cellKey];
+  } catch (e) {
+    alert("메모를 저장하지 못했습니다: " + e + "\n입력한 내용: " + text);
+  }
   render();
-  try { await invoke("save_memo", { date: cellKey, text: trimmed }); } catch (_) {}
 }
 
 function renderAll() {
@@ -674,8 +694,10 @@ function renderTimeline() {
         const commit = async () => {
           const val = input.value.trim();
           if (val !== summaries[gDate]) {
-            summaries[gDate] = val;
-            await invoke("save_summary", { date: gDate, text: val }).catch(() => {});
+            try {
+              await invoke("save_summary", { date: gDate, text: val });
+              if (val) summaries[gDate] = val; else delete summaries[gDate];
+            } catch (e) { alert("요약을 저장하지 못했습니다: " + e + "\n입력한 내용: " + val); }
           }
           renderTimeline();
         };
@@ -742,6 +764,7 @@ document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear
 document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; animateNext = true; renderAll(); };
 window.addEventListener("focus", async () => {
   if (!loaded) { load(); return; }
+  if (scanning) return;
   const result = await invoke("prune_deleted").catch(() => null);
   if (result) { data = result.files || {}; renderAll(); }
 });
@@ -819,10 +842,14 @@ async function addPath() {
 }
 
 async function savePaths() {
+  if (scanning) {
+    document.getElementById("panelMsg").textContent = "스캔이 끝난 후 설정을 저장해 주세요.";
+    return;
+  }
   const apiKey = document.getElementById("apiKeyInput").value.trim();
   const aiEnabled = document.getElementById("aiEnabled").checked;
   try {
-    await invoke("save_config", { scanPaths: editPaths, extensions: editExts, openaiApiKey: apiKey || null, aiSummaryEnabled: aiEnabled });
+    await invoke("save_config", { scanPaths: editPaths, extensions: editExts, openaiApiKey: apiKey, aiSummaryEnabled: aiEnabled });
   } catch (e) {
     document.getElementById("panelMsg").textContent = e;
     return;

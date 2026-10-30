@@ -121,6 +121,11 @@ pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
         let mut cache = ntfs_reader::file_info::VecCache::default();
         for file in mft.files() {
             scanned += 1;
+            if scanned % 10_000 == 0 {
+                let _ = app.emit("scan-progress", ScanProgress {
+                    drive: drive.clone(), scanned, total, matched,
+                });
+            }
             if file.is_directory() { continue; }
             let name = match file.get_best_file_name(&mft) {
                 Some(n) => n.to_string(),
@@ -135,11 +140,6 @@ pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
             matched += 1;
             raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
 
-            if scanned % 10_000 == 0 {
-                let _ = app.emit("scan-progress", ScanProgress {
-                    drive: drive.clone(), scanned, total, matched,
-                });
-            }
         }
         let _ = app.emit("scan-progress", ScanProgress {
             drive: drive.clone(), scanned, total, matched,
@@ -160,6 +160,8 @@ pub fn scan_walk_with_progress(cfg: &crate::store::Config, app: &tauri::AppHandl
 fn scan_walk_inner(cfg: &crate::store::Config, app: Option<&tauri::AppHandle>) -> ScanResult {
     let mut raws: Vec<RawItem> = Vec::new();
     let mut matched = 0u64;
+    let mut skipped = Vec::new();
+    let mut seen = std::collections::HashSet::new();
 
     for scan_path in &cfg.scan_paths {
         for entry in walkdir::WalkDir::new(scan_path)
@@ -170,8 +172,11 @@ fn scan_walk_inner(cfg: &crate::store::Config, app: Option<&tauri::AppHandle>) -
                 let name = e.file_name().to_string_lossy();
                 !(e.file_type().is_dir() && name.starts_with('.'))
             })
-            .filter_map(|e| e.ok())
         {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(e) => { skipped.push(e.to_string()); continue; }
+            };
             let path = entry.path();
             if !path.is_file() { continue; }
             let name = match path.file_name().and_then(|n| n.to_str()) {
@@ -179,12 +184,19 @@ fn scan_walk_inner(cfg: &crate::store::Config, app: Option<&tauri::AppHandle>) -
                 None => continue,
             };
             if !ext_matches(&name, &cfg.extensions) { continue; }
-            let unix_secs = entry.metadata().ok()
-                .and_then(|m| m.modified().ok())
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|d| d.as_secs() as i64)
-                .unwrap_or(0);
             let full_path = path.to_string_lossy().to_string();
+            if !seen.insert(full_path.to_lowercase().replace('/', "\\")) { continue; }
+            let metadata = match entry.metadata() {
+                Ok(metadata) => metadata,
+                Err(e) => { skipped.push(format!("{}: {}", full_path, e)); continue; }
+            };
+            let unix_secs = match metadata.modified() {
+                Ok(t) => match t.duration_since(std::time::UNIX_EPOCH) {
+                    Ok(d) => d.as_secs() as i64,
+                    Err(e) => { skipped.push(format!("{}: {}", full_path, e)); continue; }
+                },
+                Err(e) => { skipped.push(format!("{}: {}", full_path, e)); continue; }
+            };
             matched += 1;
             raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
             if let Some(a) = app {
@@ -197,7 +209,7 @@ fn scan_walk_inner(cfg: &crate::store::Config, app: Option<&tauri::AppHandle>) -
         }
     }
 
-    ScanResult { files: group_by_date(raws), skipped: vec![] }
+    ScanResult { files: group_by_date(raws), skipped }
 }
 
 #[cfg(test)]
@@ -208,36 +220,74 @@ mod tests {
     #[test]
     fn scan_walk_finds_files_in_folder() {
         use crate::store::Config;
+        let folder = std::env::temp_dir().join(format!("everydoing-walk-test-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("document.pdf"), "test").unwrap();
         let cfg = Config {
-            scan_paths: vec!["D:\\동구_공모전".to_string()],
+            scan_paths: vec![folder.to_string_lossy().to_string()],
             extensions: vec!["pdf".to_string(), "hwp".to_string(), "docx".to_string()],
+            ..Default::default()
         };
         let result = scan_walk(&cfg);
         let total: usize = result.files.values().map(|v| v.len()).sum();
-        println!("[test] 날짜 {}개, 파일 {}개", result.files.len(), total);
-        for (date, files) in &result.files {
-            for f in files { println!("  {} — {}", date, f.name); }
-        }
-        assert!(total > 0, "파일이 하나도 안 나왔다 — 경로나 확장자 확인 필요");
+        assert_eq!(total, 1);
+        std::fs::remove_file(folder.join("document.pdf")).unwrap();
+        std::fs::remove_dir(folder).unwrap();
     }
 
     #[test]
     fn scan_walk_empty_for_wrong_ext() {
         use crate::store::Config;
+        let folder = std::env::temp_dir().join(format!("everydoing-walk-ext-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("document.pdf"), "test").unwrap();
         let cfg = Config {
-            scan_paths: vec!["D:\\동구_공모전".to_string()],
+            scan_paths: vec![folder.to_string_lossy().to_string()],
             extensions: vec!["xyz_never_exists".to_string()],
+            ..Default::default()
         };
         let result = scan_walk(&cfg);
         let total: usize = result.files.values().map(|v| v.len()).sum();
         assert_eq!(total, 0, "없는 확장자인데 파일이 나왔다");
+        std::fs::remove_file(folder.join("document.pdf")).unwrap();
+        std::fs::remove_dir(folder).unwrap();
+    }
+
+    #[test]
+    fn scan_walk_deduplicates_overlapping_folders() {
+        let folder = std::env::temp_dir().join(format!("everydoing-walk-overlap-{}", std::process::id()));
+        let child = folder.join("child");
+        std::fs::create_dir_all(&child).unwrap();
+        std::fs::write(child.join("document.pdf"), "test").unwrap();
+        let cfg = crate::store::Config {
+            scan_paths: vec![folder.to_string_lossy().to_string(), child.to_string_lossy().to_string()],
+            extensions: vec!["pdf".into()],
+            ..Default::default()
+        };
+        let result = scan_walk(&cfg);
+        assert_eq!(result.files.values().map(Vec::len).sum::<usize>(), 1);
+        assert!(result.skipped.is_empty());
+        std::fs::remove_file(child.join("document.pdf")).unwrap();
+        std::fs::remove_dir(child).unwrap();
+        std::fs::remove_dir(folder).unwrap();
+    }
+
+    #[test]
+    fn scan_walk_reports_missing_root() {
+        let path = std::env::temp_dir().join(format!("everydoing-missing-root-{}", std::process::id()));
+        let cfg = crate::store::Config {
+            scan_paths: vec![path.to_string_lossy().to_string()],
+            extensions: vec!["pdf".into()],
+            ..Default::default()
+        };
+        assert!(!scan_walk(&cfg).skipped.is_empty());
     }
 
     // --- filetime_to_date ---
     #[test]
     #[ignore]
     fn scan_bench_walkdir() {
-        let cfg = crate::store::load_config();
+        let cfg = crate::store::load_config().unwrap();
         println!("scan_paths: {:?}", cfg.scan_paths);
         let t = std::time::Instant::now();
         let result = super::scan_walk(&cfg);

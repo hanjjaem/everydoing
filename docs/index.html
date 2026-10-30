@@ -116,7 +116,7 @@ body {
   text-align: center;
   margin-top: 20px;
   line-height: 1.65;
-  max-width: 480px;
+  max-width: 500px;
   animation: fadeUp .7s .2s ease both;
 }
 
@@ -171,7 +171,7 @@ body {
 }
 
 .mockup-window {
-  background: #11141f;
+  background: #ffffff;
   border-radius: 16px;
   border: 1px solid var(--border-2);
   box-shadow:
@@ -186,8 +186,8 @@ body {
   display: flex;
   align-items: center;
   padding: 14px 18px;
-  background: #0d1018;
-  border-bottom: 1px solid #ffffff0d;
+  background: #f7f8fb;
+  border-bottom: 1px solid #e8eaf1;
   gap: 12px;
 }
 .titlebar-dots { display: flex; gap: 7px; }
@@ -204,7 +204,7 @@ body {
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #c0c8e0;
+  color: #1e2333;
   letter-spacing: -.01em;
 }
 .titlebar-brand-icon {
@@ -225,12 +225,37 @@ body {
   padding: 5px 11px;
   border-radius: 7px;
   font-size: 11.5px;
-  color: #6b7494;
-  border: 1px solid #ffffff0d;
-  background: #ffffff05;
+  color: #6b7280;
+  border: 1px solid #e8eaf1;
+  background: #ffffff;
   cursor: pointer;
   font-family: var(--sans);
+  transition: color .2s, border-color .2s;
 }
+.titlebar-btn.scanning { color: var(--blue); border-color: #3b82f660; animation: pulse 1s ease infinite; }
+.titlebar-btn.pressed {
+  animation: btnPress .6s ease;
+  position: relative;
+  z-index: 3;
+}
+@keyframes btnPress {
+  0%   { transform: scale(1); box-shadow: none; }
+  35%  { transform: scale(1.18); background: #dbeafe; border-color: var(--blue); box-shadow: 0 0 0 6px #3b82f625; }
+  100% { transform: scale(1); box-shadow: none; }
+}
+
+.fake-cursor {
+  position: absolute;
+  font-size: 30px;
+  opacity: 0;
+  transform: scale(.5) translateY(-10px);
+  transition: opacity .4s ease, transform .4s ease;
+  pointer-events: none;
+  z-index: 6;
+  filter: drop-shadow(0 2px 4px #00000040);
+}
+.fake-cursor.show { opacity: 1; transform: scale(1) translateY(0); }
+.fake-cursor.click { transform: scale(.8) translateY(4px); }
 
 /* app body */
 .mockup-body {
@@ -242,14 +267,14 @@ body {
 .m-sidebar {
   width: 210px;
   flex-shrink: 0;
-  background: #0e1120;
-  border-right: 1px solid #ffffff0d;
+  background: #fafbfd;
+  border-right: 1px solid #eceef4;
   overflow: hidden;
   padding: 14px 0;
 }
 .m-side-sec {
   padding: 10px 16px;
-  border-bottom: 1px solid #ffffff07;
+  border-bottom: 1px solid #eef0f5;
   margin-bottom: 4px;
 }
 .m-side-label {
@@ -257,7 +282,7 @@ body {
   font-weight: 600;
   letter-spacing: .06em;
   text-transform: uppercase;
-  color: #3b4263;
+  color: #a4aabd;
   margin-bottom: 10px;
 }
 .m-mininav {
@@ -267,7 +292,7 @@ body {
 }
 .m-mininav span {
   font-size: 11.5px;
-  color: #4a5278;
+  color: #6b7280;
   text-align: center;
   padding: 5px 0;
   border-radius: 6px;
@@ -281,7 +306,7 @@ body {
 .m-today {
   width: 100%;
   margin-top: 8px;
-  background: #1e2d5220;
+  background: #e8f0ff;
   border: none;
   border-radius: 7px;
   color: var(--blue);
@@ -290,16 +315,16 @@ body {
   cursor: pointer;
 }
 .m-folder { display: flex; align-items: center; gap: 7px; padding: 3px 0; }
-.m-folder-dot { width: 5px; height: 5px; border-radius: 1.5px; background: #3b4263; flex-shrink: 0; }
-.m-folder-text { font-size: 11.5px; color: #4a5278; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-folder-dot { width: 5px; height: 5px; border-radius: 1.5px; background: #c3c8da; flex-shrink: 0; }
+.m-folder-text { font-size: 11.5px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.m-stat-num { font-size: 22px; font-weight: 700; color: #c0c8e0; letter-spacing: -.02em; }
-.m-stat-lbl { font-size: 11px; color: #3b4263; margin-top: 1px; }
+.m-stat-num { font-size: 22px; font-weight: 700; color: #1e2333; letter-spacing: -.02em; }
+.m-stat-lbl { font-size: 11px; color: #a4aabd; margin-top: 1px; }
 
 .m-legend { display: flex; align-items: center; gap: 7px; padding: 2.5px 0; }
 .m-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.m-legend-text { font-size: 11px; color: #4a5278; }
-.m-legend-pct { font-size: 11px; color: #3b4263; margin-left: auto; }
+.m-legend-text { font-size: 11px; color: #6b7280; }
+.m-legend-pct { font-size: 11px; color: #a4aabd; margin-left: auto; }
 
 /* main calendar */
 .m-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -308,21 +333,21 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 18px;
-  border-bottom: 1px solid #ffffff0d;
+  border-bottom: 1px solid #eceef4;
 }
 .m-head-title {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -.025em;
-  color: #c0c8e0;
+  color: #1e2333;
 }
-.m-head-title span { font-size: 12px; color: #3b4263; font-weight: 500; margin-left: 6px; }
-.m-nav-btn { background: none; border: none; color: #3b4263; font-size: 15px; cursor: pointer; padding: 4px 7px; border-radius: 6px; font-family: var(--sans); }
+.m-head-title span { font-size: 12px; color: #a4aabd; font-weight: 500; margin-left: 6px; }
+.m-nav-btn { background: none; border: none; color: #a4aabd; font-size: 15px; cursor: pointer; padding: 4px 7px; border-radius: 6px; font-family: var(--sans); }
 .m-search {
-  background: #ffffff06;
-  border: 1px solid #ffffff0d;
+  background: #f3f4f8;
+  border: 1px solid #e8eaf1;
   border-radius: 999px;
-  color: #4a5278;
+  color: #9aa0b4;
   font: 11.5px var(--sans);
   padding: 5px 12px;
   width: 140px;
@@ -332,14 +357,14 @@ body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   padding: 8px 0;
-  border-bottom: 1px solid #ffffff07;
-  background: #0d1018;
+  border-bottom: 1px solid #eef0f5;
+  background: #fafbfd;
 }
 .m-wday {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: .04em;
-  color: #2d3455;
+  color: #b0b5c4;
   text-align: left;
   padding-left: 10px;
 }
@@ -349,42 +374,48 @@ body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   grid-template-rows: repeat(5, 1fr);
-  background: #0a0c14;
+  background: #ffffff;
 }
 
 .m-cell {
-  border-right: 1px solid #ffffff06;
-  border-bottom: 1px solid #ffffff06;
+  border-right: 1px solid #f0f1f6;
+  border-bottom: 1px solid #f0f1f6;
   padding: 7px 9px;
   position: relative;
   cursor: pointer;
-  transition: background .1s;
+  transition: background .3s ease, box-shadow .3s ease;
 }
 .m-cell:nth-child(7n) { border-right: none; }
-.m-cell:hover { background: #ffffff04; }
-.m-cell.empty { opacity: .3; }
-.m-cell.today { background: #1e2d5215; }
+.m-cell:hover { background: #f7f8fb; }
+.m-cell.empty { opacity: .35; }
+.m-cell.today { background: #eaf1ff; }
 .m-cell.today::after {
   content: '';
   position: absolute;
   inset: 0;
-  border: 1px solid #3b82f630;
+  border: 1px solid #3b82f640;
   border-radius: 0;
   pointer-events: none;
 }
-.m-cell.active { background: #1a2035; }
+.m-cell.active { background: #ffffff; }
+.m-cell.active.filled { background: #f5f8ff; }
+
+.m-cell.scanning { background: #eaf1ff; box-shadow: inset 0 0 0 1px #3b82f680; }
+.m-cell.dimmed { opacity: .25; filter: grayscale(60%); transition: opacity .3s ease, filter .3s ease; }
 
 .m-date {
   font-size: 12px;
   font-weight: 600;
-  color: #3d4568;
+  color: #9aa0b4;
   line-height: 1;
   margin-bottom: 5px;
 }
 .m-cell.today .m-date { color: var(--blue); }
-.m-cell.active .m-date { color: #8090c0; }
+.m-cell.active .m-date { color: #4b5568; }
 
 .m-chips { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 3px; }
+.m-chips, .m-count, .m-memo { opacity: 0; transform: translateY(4px); transition: opacity .35s ease, transform .35s ease; }
+.m-cell.filled .m-chips, .m-cell.filled .m-count, .m-cell.filled .m-memo { opacity: 1; transform: none; }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -397,14 +428,14 @@ body {
 }
 .chip-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
 
-.chip-hwp  { background: #1e3a5220; color: #60a5fa; }  .chip-hwp  .chip-dot { background: #3b82f6; }
-.chip-doc  { background: #1e3a7820; color: #93c5fd; }  .chip-doc  .chip-dot { background: #2563eb; }
-.chip-xls  { background: #14352020; color: #6ee7b7; }  .chip-xls  .chip-dot { background: #10b981; }
-.chip-ppt  { background: #3b200e20; color: #fca5a5; }  .chip-ppt  .chip-dot { background: #ef4444; }
-.chip-pdf  { background: #3b150e20; color: #fda4af; }  .chip-pdf  .chip-dot { background: #f43f5e; }
+.chip-hwp  { background: #dbeafe; color: #1d4ed8; }  .chip-hwp  .chip-dot { background: #3b82f6; }
+.chip-doc  { background: #e0e7ff; color: #4338ca; }  .chip-doc  .chip-dot { background: #2563eb; }
+.chip-xls  { background: #d1fae5; color: #047857; }  .chip-xls  .chip-dot { background: #10b981; }
+.chip-ppt  { background: #fee2e2; color: #b91c1c; }  .chip-ppt  .chip-dot { background: #ef4444; }
+.chip-pdf  { background: #ffe4e6; color: #be123c; }  .chip-pdf  .chip-dot { background: #f43f5e; }
 
-.m-count { font-size: 9.5px; color: #2d3455; }
-.m-memo { font-size: 9px; color: #2d3870; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-count { font-size: 9.5px; color: #b0b5c4; }
+.m-memo { font-size: 9px; color: #6b7280; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── SECTIONS ─────────────────────────── */
 section { padding: 100px 24px; }
@@ -706,15 +737,14 @@ footer {
 
   <div class="badge">
     <span class="badge-dot"></span>
-    Windows 전용 · 완전 로컬 · 외부 서버 없음
+    Windows 전용 · 완전 로컬 · AI 기능은 선택
   </div>
 
-  <h1>내가 한 일을<br><em>날짜로.</em></h1>
+  <h1>Every<em>Doing.</em></h1>
 
   <p class="hero-sub">
-    업무 파일의 수정일을 자동으로 읽어<br>
-    월 달력에 펼쳐 보여줍니다.<br>
-    "그날 뭘 했더라"에 즉시 답합니다.
+    업무 파일의 수정일을 자동으로 읽어 월 달력에 펼쳐 보여줍니다.
+    "내가 뭘 했더라"를 한 눈에 알 수 있습니다.
   </p>
 
   <div class="cta-row">
@@ -752,6 +782,13 @@ footer {
 
       <!-- body -->
       <div class="mockup-body">
+
+        <div class="mockup-scan-overlay" id="scan-overlay">
+          <button class="scan-cta" id="scan-cta">
+            <span class="scan-cta-icon">🔍</span>
+            스캔 시작
+          </button>
+        </div>
 
         <!-- sidebar -->
         <div class="m-sidebar">
@@ -958,7 +995,7 @@ footer {
       <div class="bento-card">
         <div class="bento-icon" style="background:#0f1f0f;">⚡</div>
         <div class="bento-title">NTFS MFT 직접 인덱싱</div>
-        <div class="bento-desc">Everything 같은 외부 앱 없이 NTFS MFT를 직접 순회합니다. 수만 개 파일도 빠르게 색인합니다.</div>
+        <div class="bento-desc">별도 프로그램 설치 없이, 켜자마자 인덱싱을 시작합니다. 실행 파일 하나면 끝입니다.</div>
       </div>
 
       <!-- 로컬 데이터 -->
@@ -1088,6 +1125,123 @@ const observer = new IntersectionObserver(
   { threshold: 0.1 }
 );
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// 달력 mockup: 스캔 시뮬레이션 — 날짜 순서대로 문서가 자동으로 채워짐
+const scanBtn = document.querySelector('.titlebar-btn');
+const activeCells = Array.from(document.querySelectorAll('.m-cell.active, .m-cell.today'));
+
+// 스캔 시작 전, 가짜 커서가 버튼으로 이동해 클릭하는 장면
+function clickScanButton(cb) {
+  if (!scanBtn) return cb();
+  const parent = scanBtn.parentElement;
+  parent.style.position = 'relative';
+  const cursor = document.createElement('div');
+  cursor.className = 'fake-cursor';
+  cursor.textContent = '👆';
+  parent.appendChild(cursor);
+
+  const btnRect = scanBtn.getBoundingClientRect();
+  const parentRect = parent.getBoundingClientRect();
+  cursor.style.left = (btnRect.left - parentRect.left + btnRect.width / 2 - 15) + 'px';
+  cursor.style.top = (btnRect.top - parentRect.top + btnRect.height / 2 - 15) + 'px';
+
+  requestAnimationFrame(() => cursor.classList.add('show'));
+  setTimeout(() => {
+    cursor.classList.add('click');
+    scanBtn.classList.add('pressed');
+    setTimeout(() => {
+      cursor.remove();
+      scanBtn.classList.remove('pressed');
+      setTimeout(cb, 400);
+    }, 650);
+  }, 1100);
+}
+
+function typeMemo(el) {
+  const text = el.dataset.memoText || el.textContent;
+  el.dataset.memoText = text;
+  el.textContent = '';
+  let i = 0;
+  const t = setInterval(() => {
+    el.textContent = text.slice(0, ++i);
+    if (i >= text.length) clearInterval(t);
+  }, 55);
+}
+
+function runScan(onDone) {
+  activeCells.forEach(c => c.classList.remove('filled', 'scanning'));
+  if (scanBtn) scanBtn.classList.add('scanning');
+
+  activeCells.forEach((cell, i) => {
+    setTimeout(() => {
+      cell.classList.add('scanning');
+      setTimeout(() => {
+        cell.classList.remove('scanning');
+        cell.classList.add('filled');
+        const memo = cell.querySelector('.m-memo');
+        if (memo) typeMemo(memo);
+      }, 220);
+    }, i * 260);
+  });
+
+  const totalTime = activeCells.length * 260 + 500;
+  setTimeout(() => {
+    if (scanBtn) scanBtn.classList.remove('scanning');
+    if (onDone) onDone();
+  }, totalTime);
+}
+
+// 달력 mockup: 스캔이 끝난 뒤에만 검색 데모 시작, 검색 데모가 끝나면 다시 스캔 (완전 순차 진행, 겹침 없음)
+const searchEl = document.querySelector('.m-search');
+const searchWords = ['hwp', 'pdf', 'xlsx', 'docx'];
+const filterMap = { hwp: 'hwp', pdf: 'pdf', xlsx: 'xls', docx: 'doc' };
+const IDLE_TEXT = '파일명 검색…';
+
+function applySearchFilter(filter) {
+  activeCells.forEach(cell => {
+    const matches = !filter || cell.querySelector('.chip-' + filter);
+    cell.classList.toggle('dimmed', !matches);
+  });
+}
+
+function typeText(text, cb) {
+  let i = 0;
+  const t = setInterval(() => {
+    searchEl.placeholder = text.slice(0, ++i);
+    if (i >= text.length) { clearInterval(t); cb(); }
+  }, 140);
+}
+function eraseText(cb) {
+  const full = searchEl.placeholder;
+  let i = full.length;
+  const t = setInterval(() => {
+    searchEl.placeholder = full.slice(0, --i);
+    if (i <= 0) { clearInterval(t); cb(); }
+  }, 70);
+}
+
+function runSearchDemo(idx) {
+  if (idx >= searchWords.length) {
+    searchEl.placeholder = IDLE_TEXT;
+    setTimeout(startCycle, 1400);
+    return;
+  }
+  const word = searchWords[idx];
+  typeText(word, () => {
+    applySearchFilter(filterMap[word]);
+    setTimeout(() => {
+      eraseText(() => {
+        applySearchFilter(null);
+        setTimeout(() => runSearchDemo(idx + 1), 500);
+      });
+    }, 2600);
+  });
+}
+
+function startCycle() {
+  clickScanButton(() => runScan(() => setTimeout(() => runSearchDemo(0), 900)));
+}
+startCycle();
 </script>
 </body>
 </html>
