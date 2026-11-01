@@ -1,6 +1,14 @@
+<h1 align="center">EveryDoing</h1>
+
+<p align="center">내가 한 일을, 날짜로</p>
+
 <p align="center">
-  <img src="docs/poster.svg" alt="EveryDoing — 내가 한 일을, 날짜로" width="800">
+  <a href="docs/everydoing-story.mp4"><img src="docs/everydoing-story.gif" alt="EveryDoing 소개 영상: 작업한 파일이 날짜별 기록이 됩니다" width="800"></a>
 </p>
+
+<p align="center">기억나지 않는 하루도, 다시 만날 수 있도록.</p>
+
+<p align="center"><a href="docs/index.html">소개 페이지 소스 보기</a></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Windows_10%2F11-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">
@@ -123,6 +131,8 @@ cargo tauri build
 ```
 
 설정 파일 위치: `%APPDATA%\EveryDoing\config.json`
+
+설치본 생성부터 검증과 수동 배포까지의 자세한 절차는 [Windows 배포 가이드](docs/배포-가이드.md)를 참고하세요.
 
 ---
 
