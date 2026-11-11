@@ -1130,6 +1130,7 @@ dependencies = [
  "arboard",
  "chrono",
  "dirs 5.0.1",
+ "getrandom 0.3.4",
  "ntfs-reader",
  "opener",
  "reqwest 0.12.28",

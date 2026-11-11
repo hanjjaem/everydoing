@@ -216,7 +216,7 @@ async function startScan() {
   } catch (e) {
     finishScan();
     console.error("[startScan] 오류:", e);
-    msg.textContent = "스캔을 시작하지 못했습니다. 다시 시도해 주세요.";
+    msg.textContent = "스캔을 완료하지 못했습니다: " + (e && e.message ? e.message : e);
   }
 }
 

@@ -20,6 +20,8 @@ __pycache__/
 
 # Rust / Tauri 빌드 산출물
 src-tauri/target/
+videos/*/node_modules/
+videos/*/.hyperframes/
 
 .claude/
 C:\Users\user\AppData\Local\Temp\tauri_dev_log.txt

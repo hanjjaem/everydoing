@@ -99,6 +99,14 @@ pub struct ScanResult {
 }
 
 pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
+    scan_mft(cfg, Some(app))
+}
+
+pub fn scan_without_progress(cfg: &crate::store::Config) -> ScanResult {
+    scan_mft(cfg, None)
+}
+
+fn scan_mft(cfg: &crate::store::Config, app: Option<&tauri::AppHandle>) -> ScanResult {
     use ntfs_reader::{file_info::FileInfo, mft::Mft, volume::Volume};
 
     let drives = drives_from_paths(&cfg.scan_paths);
@@ -122,9 +130,11 @@ pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
         for file in mft.files() {
             scanned += 1;
             if scanned % 10_000 == 0 {
-                let _ = app.emit("scan-progress", ScanProgress {
-                    drive: drive.clone(), scanned, total, matched,
-                });
+                if let Some(app) = app {
+                    let _ = app.emit("scan-progress", ScanProgress {
+                        drive: drive.clone(), scanned, total, matched,
+                    });
+                }
             }
             if file.is_directory() { continue; }
             let name = match file.get_best_file_name(&mft) {
@@ -141,9 +151,11 @@ pub fn scan(cfg: &crate::store::Config, app: &tauri::AppHandle) -> ScanResult {
             raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
 
         }
-        let _ = app.emit("scan-progress", ScanProgress {
-            drive: drive.clone(), scanned, total, matched,
-        });
+        if let Some(app) = app {
+            let _ = app.emit("scan-progress", ScanProgress {
+                drive: drive.clone(), scanned, total, matched,
+            });
+        }
     }
 
     ScanResult { files: group_by_date(raws), skipped }
