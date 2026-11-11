@@ -38,7 +38,7 @@
     매번 confirm 동의 시에만 전송. 전송 대상은 파일명뿐(파일 내용 아님).
   - 설정 패널에 전송 고지 문구 노출.
   - TODO(여력 시): 외부 전송 없는 로컬 요약 경로(예: TextRank류) 추가.
-- 레거시 Python 코드(Everything 시절)는 `legacy/`에 보관.
+- 레거시 Python 코드(Everything 시절)는 git 이력에만 남김. 2026-11-11 공공 GitLab 보안 검사(Semgrep) 대응으로 `legacy/` 폴더를 저장소에서 제거함(제거 직전 커밋 3ade0f4에서 확인 가능).
 
 ## 자주 막히는 것들 (시행착오 메모)
 - MFT 접근에는 관리자 권한 필요. `cargo tauri dev`도 관리자 터미널에서 실행.
