@@ -101,8 +101,9 @@ HWP · DOC · XLS · PPT · PDF를\
 
 ```
 PC 내 파일 (NTFS 드라이브)
-    │  ntfs-reader — MFT 직접 순회
-    │  scan_paths의 드라이브에서 해당 볼륨만 인덱싱
+    │  드라이브 전체(예: D:\) — ntfs-reader로 MFT 직접 순회
+    │  일반 폴더 — 폴더 순회(walkdir)
+    │  휴지통·시스템 폴더·점(.) 폴더·Office 임시 파일(~$)은 제외
     ▼
 index.json  (%APPDATA%\EveryDoing\)
     │  Tauri 백엔드 → 프런트 emit
@@ -123,7 +124,7 @@ memos.json  (%APPDATA%\EveryDoing\)
 - **접속 주소**: 없음. Windows 데스크톱 앱이며 웹 서비스가 아닙니다.
 - **실행 환경**: Windows 10/11 (64비트). 화면 표시에 Microsoft Edge WebView2 런타임을 사용하며, 없으면 설치 파일이 내려받아 설치합니다.
 
-1. 이 저장소의 [`release/EveryDoing_0.1.0_x64-setup.exe`](release/)를 내려받아 실행합니다. 코드 서명이 없어 "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행**을 누릅니다.
+1. 이 저장소의 [`release/EveryDoing_0.2.0_x64-setup.exe`](release/)를 내려받아 실행합니다. 이전 버전이 설치되어 있으면 그 위에 설치되고, 설정·메모·요약은 그대로 남습니다. 코드 서명이 없어 "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행**을 누릅니다.
 2. 시작 메뉴에서 **EveryDoing**을 실행하고, 사용자 계정 컨트롤(UAC) 창에서 **예**를 누릅니다. 실행할 때마다 관리자 권한을 요청합니다.
 3. 처음 실행하면 설정 패널이 열립니다. **폴더 추가**로 문서가 있는 폴더(예: `C:\Users\(사용자)\Documents`) 또는 드라이브 전체(예: `D:\`)를 고릅니다.
 4. **파일 유형**을 확인하고 **저장**을 누르면 스캔이 시작됩니다. 기본 유형은 hwp·hwpx·doc·docx·xls·xlsx·ppt·pptx·pdf입니다.
@@ -135,9 +136,9 @@ memos.json  (%APPDATA%\EveryDoing\)
 | 그날 다룬 문서 보기 | 날짜 칸의 파일 영역을 누르면 오른쪽에 그날의 파일 목록이 열립니다 |
 | 파일·폴더 열기 | 칸의 파일명을 누르고 **파일 열기** 또는 **폴더 열기**를 고릅니다 |
 | 다른 달로 이동 | 상단 **← →** 또는 사이드바 **달력 이동** |
-| 문서를 언제 다뤘는지 찾기 | 상단 **파일명 검색**에 단어를 입력합니다 |
-| 한 줄 메모 | 날짜 칸의 빈 곳을 누르고 입력한 뒤 Enter를 누릅니다 |
-| 새 파일 반영 | 사이드바 **스캔 폴더**의 **↺**로 다시 스캔합니다 |
+| 문서를 언제 다뤘는지 찾기 | 상단 검색에 파일명이나 폴더 이름의 일부를 입력하면 전체 기간에서 찾아 최근 날짜부터 보여줍니다. 결과의 날짜를 누르면 그 달로 이동합니다 |
+| 한 줄 메모 | 날짜 칸 아래쪽에 마우스를 올리면 나타나는 **메모 추가**를 누르고 입력한 뒤 Enter를 누릅니다 |
+| 새 파일 반영 | 앱을 켤 때 자동으로 다시 스캔합니다. 켜 둔 동안 바뀐 파일은 사이드바 **스캔 폴더**의 **↺**로 반영합니다 |
 
 ### AI 요약 (선택, 기본 꺼짐)
 
@@ -170,14 +171,20 @@ cargo tauri build
 ```
 src-tauri/src/
   main.rs          Tauri 커맨드 등록 · AppHandle 진입점
-  indexer.rs       MFT 순회 · 파일 필터 · 날짜 변환
+  indexer.rs       MFT 순회 · 폴더 순회 · 제외 규칙 · 날짜 변환
   store.rs         index.json 캐시 저장/로드
   summarizer.rs    AI 요약 (OpenAI 호출, 선택 기능)
+  bin/dev_web.rs   브라우저 개발 모드 서버 (개발 전용)
 
 static/
   index.html       달력 UI · 사이드바 · 드로어 · 메모 · 설정 패널
-  app.js           이벤트 처리 · 달력 렌더 · Tauri invoke
+  app.js           이벤트 처리 · 달력 렌더 · 검색 · Tauri invoke
+  fonts/           Pretendard 글꼴 (앱에 포함, 외부 요청 없음)
+
+tests/             화면 로직 테스트 (node --test "tests/*.test.cjs")
 ```
+
+개선 방향과 진행 상황은 [개선 계획](docs/개선-계획.md)에 있습니다.
 
 ---
 
