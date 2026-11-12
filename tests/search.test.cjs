@@ -52,6 +52,13 @@ test('수정 시각은 그 PC의 현지 시각 HH:MM으로, 모르면 빈 문자
   assert.equal(app.timeOf({}), '');
 });
 
+test('월 인덱스의 점: 그 해에 기록이 있는 달만 고른다', () => {
+  const months = app.monthsWithRecords({ ...data, '2026-08-03': [] }, 2026);
+  assert.deepEqual(Array.from(months).sort((a, b) => a - b), [2, 10], '3월과 11월. 파일이 없는 날만 있는 8월은 빠진다');
+  assert.deepEqual(Array.from(app.monthsWithRecords(data, 2025)), [11]);
+  assert.equal(app.monthsWithRecords(data, 2027).size, 0);
+});
+
 test('폴더 경로는 파일명을 뗀 앞부분이다', () => {
   assert.equal(app.folderOf('D:\\업무\\예산\\집계표.xlsx'), 'D:\\업무\\예산');
   assert.equal(app.folderOf('집계표.xlsx'), '');

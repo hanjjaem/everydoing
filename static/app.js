@@ -64,7 +64,6 @@ function hideFileMenu() {
   fileMenuPath = null;
 }
 
-const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const LEGEND = [
   { color: "#1E6FE8", label: "HWP", name: "한글 (hwp)" },
   { color: "#2B579A", label: "DOC", name: "워드 (doc)" },
@@ -116,6 +115,16 @@ function timeOf(f) {
 function folderOf(path) {
   const i = Math.max((path || "").lastIndexOf("\\"), (path || "").lastIndexOf("/"));
   return i > 0 ? path.slice(0, i) : "";
+}
+
+// 그 해에 기록이 있는 달(0=1월 … 11=12월)의 집합. 월 인덱스 탭의 점 표시에 쓴다.
+function monthsWithRecords(data, year) {
+  const months = new Set();
+  const prefix = year + "-";
+  for (const date in data) {
+    if (date.startsWith(prefix) && data[date].length) months.add(Number(date.slice(5, 7)) - 1);
+  }
+  return months;
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -315,8 +324,6 @@ function key(y, m, d) {
 
 function render() {
   const y = cur.getFullYear(), m = cur.getMonth();
-  document.getElementById("yearLabel").textContent = y + "년";
-  document.getElementById("label").textContent = (m + 1) + "월";
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
   const first = new Date(y, m, 1).getDay();
@@ -485,6 +492,7 @@ async function saveMemo(cellKey, text) {
 
 function renderAll() {
   render();
+  renderIndexBand();
   renderSidebar();
   renderTimeline();
   renderMonthSummary();
@@ -627,44 +635,46 @@ function renderMonthSummary() {
 }
 
 function renderSidebar() {
-  renderMonthNav();
   renderFolders();
   renderScanStatus();
   renderLegend();
   renderStats();
 }
 
-function renderMonthNav() {
-  const box = document.getElementById("monthNav");
-  const y = cur.getFullYear(), m = cur.getMonth();
-  box.innerHTML = "";
-  const head = document.createElement("div");
-  head.className = "mininav-head";
-  const prevY = document.createElement("button"); prevY.textContent = "‹";
-  prevY.onclick = () => { cur = new Date(y - 1, m, 1); selectedDate = null; animateNext = true; renderAll(); };
-  const yLabel = document.createElement("span"); yLabel.className = "y"; yLabel.textContent = y;
-  const nextY = document.createElement("button"); nextY.textContent = "›";
-  nextY.onclick = () => { cur = new Date(y + 1, m, 1); selectedDate = null; animateNext = true; renderAll(); };
-  head.append(prevY, yLabel, nextY);
-  box.appendChild(head);
+// 다른 달로 옮긴다. 검색 중이었다면 검색을 끝낸다.
+function goToMonth(date) {
+  if (query) { query = ""; document.getElementById("search").value = ""; }
+  cur = date;
+  selectedDate = null;
+  animateNext = true;
+  renderAll();
+}
 
-  const grid = document.createElement("div");
-  grid.className = "mininav-grid";
-  const today = new Date();
-  MONTHS.forEach((name, i) => {
+// 월 인덱스: 연도 + 월 탭 12개. 기록이 있는 달과 오늘이 속한 달을 점으로 표시한다.
+function renderIndexBand() {
+  const y = cur.getFullYear(), m = cur.getMonth(), now = new Date();
+  const searching = !!query.trim();
+  document.getElementById("yearLabel").textContent = y;
+  const has = monthsWithRecords(data, y);
+  const tabs = document.getElementById("monthTabs");
+  tabs.innerHTML = "";
+  for (let i = 0; i < 12; i++) {
     const b = document.createElement("button");
-    b.textContent = name;
-    if (i === m) b.classList.add("cur");
-    b.onclick = () => { cur = new Date(y, i, 1); selectedDate = null; animateNext = true; renderAll(); };
-    grid.appendChild(b);
-  });
-  box.appendChild(grid);
-
-  const todayBtn = document.createElement("button");
-  todayBtn.className = "mininav-today";
-  todayBtn.textContent = "오늘로";
-  todayBtn.onclick = () => { cur = new Date(); selectedDate = null; animateNext = true; renderAll(); };
-  box.appendChild(todayBtn);
+    b.type = "button";
+    b.className = "month-tab";
+    // 검색 중에는 전체 기간이 대상이므로 어느 달도 선택된 것으로 표시하지 않는다.
+    if (i === m && !searching) { b.classList.add("cur"); b.setAttribute("aria-current", "true"); }
+    if (has.has(i)) b.classList.add("has");
+    if (y === now.getFullYear() && i === now.getMonth()) b.classList.add("now");
+    b.title = (i + 1) + "월" + (has.has(i) ? " · 기록 있음" : " · 기록 없음");
+    const label = document.createElement("span");
+    label.textContent = (i + 1) + "월";
+    const dot = document.createElement("i");
+    dot.className = "dot";
+    b.append(label, dot);
+    b.onclick = () => goToMonth(new Date(y, i, 1));
+    tabs.appendChild(b);
+  }
 }
 
 function renderFolders() {
@@ -918,12 +928,7 @@ function renderSearch() {
 // 검색 결과의 날짜를 누르면 검색을 끝내고 그 달로 가서 그 날을 연다.
 function jumpToDate(dateStr) {
   const [y, m] = dateStr.split("-").map(Number);
-  cur = new Date(y, m - 1, 1);
-  query = "";
-  document.getElementById("search").value = "";
-  selectedDate = null;
-  animateNext = true;
-  renderAll();
+  goToMonth(new Date(y, m - 1, 1));
   selectDate(dateStr);
 }
 
@@ -957,8 +962,19 @@ async function openFile(path, mode) {
   }
 }
 
-document.getElementById("prev").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() - 1, 1); selectedDate = null; animateNext = true; renderAll(); };
-document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1); selectedDate = null; animateNext = true; renderAll(); };
+document.getElementById("prevYear").onclick = () => goToMonth(new Date(cur.getFullYear() - 1, cur.getMonth(), 1));
+document.getElementById("nextYear").onclick = () => goToMonth(new Date(cur.getFullYear() + 1, cur.getMonth(), 1));
+document.getElementById("todayBtn").onclick = () => goToMonth(new Date());
+// ← → 로 이전·다음 달. 글자를 입력하는 중이거나 창(설정·드로어·월간요약)이 열려 있거나 검색 중이면 넘기지 않는다.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) return;
+  const b = document.body;
+  if (b.hasAttribute("data-settings") || b.hasAttribute("data-timeline") || b.hasAttribute("data-month") || b.hasAttribute("data-search")) return;
+  e.preventDefault();
+  goToMonth(new Date(cur.getFullYear(), cur.getMonth() + (e.key === "ArrowRight" ? 1 : -1), 1));
+});
 window.addEventListener("focus", async () => {
   if (!loaded) { load(); return; }
   if (scanning) return;
@@ -977,9 +993,6 @@ document.getElementById("search").oninput = (e) => { query = e.target.value; ren
 document.getElementById("search").onkeydown = (e) => {
   if (e.key === "Escape" && query) { e.stopPropagation(); query = ""; e.target.value = ""; renderAll(); }
 };
-document.getElementById("label").style.cursor = "pointer";
-document.getElementById("label").title = "오늘로";
-document.getElementById("label").onclick = () => { cur = new Date(); selectedDate = null; animateNext = true; renderAll(); };
 
 let editPaths = [];
 let editExts = [];
@@ -1130,7 +1143,6 @@ document.getElementById("fm-folder").onclick = () => { if (fileMenuPath) openFil
 document.addEventListener("click", hideFileMenu);
 
 document.getElementById("settings").onclick = openPanel;
-document.getElementById("manageFolders").onclick = openPanel;
 document.getElementById("refreshScan").onclick = () => startScan();
 document.getElementById("genSummaries").onclick = genSummaries;
 document.getElementById("genMonthSummary").onclick = genMonthSummary;

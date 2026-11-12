@@ -55,16 +55,16 @@
     user-select: none;
   }
   .window-drag-region {
-    flex: 1; min-width: 0; display: flex; align-items: end;
-    padding: 5px 0 0 10px;
+    flex: 1; min-width: 0; display: flex; align-items: center;
+    padding: 0 0 0 14px;
   }
-  .window-tab {
-    display: flex; align-items: center; gap: 8px; height: 34px;
-    min-width: 164px; padding: 0 13px; border-radius: 9px 9px 0 0;
-    background: var(--card); color: var(--ink); font-size: 12px; font-weight: 600;
+  /* 제목은 일반 글자로 둔다. 탭 모양은 월 인덱스 한 곳에서만 쓴다. */
+  .window-title {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--ink); font-size: 12px; font-weight: 600;
     pointer-events: none;
   }
-  .window-tab img { width: 18px; height: 18px; flex: none; }
+  .window-title img { width: 18px; height: 18px; flex: none; }
   .window-controls { display: flex; flex-shrink: 0; }
   .window-control {
     display: grid; place-items: center; width: 46px; height: 39px;
@@ -76,22 +76,19 @@
   .window-control svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.2; }
   .window-control .restore-icon, .window-control.is-maximized .maximize-icon { display: none; }
   .window-control.is-maximized .restore-icon { display: block; }
-  .icon-btn {
-    font: inherit; font-size: 14px; background: transparent; color: var(--ink-2);
-    border: none; border-radius: 8px; padding: 7px 12px; cursor: pointer;
-    transition: background .15s, color .15s;
-  }
-  .icon-btn:hover { background: var(--hover); color: var(--ink); }
-  #settings { color: var(--accent); }
-
   /* 본문 = 사이드바 + 메인 */
   .body { display: flex; flex: 1; min-height: 0; }
 
   /* ── 사이드바 ───────────────────────── */
+  /* 위: 찾기·스캔 폴더·파일 종류 / 아래: 이달 요약. 남는 높이는 그 사이 한 곳에 모인다. */
   .sidebar {
     width: 250px; flex-shrink: 0; overflow-y: auto;
+    display: flex; flex-direction: column;
     background: var(--side); border-right: 1px solid var(--line);
   }
+  .sidebar > * { flex-shrink: 0; }
+  .side-search { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .side-sec.pin-bottom { margin-top: auto; border-top: 1px solid var(--line); border-bottom: none; }
   .side-brand {
     display: flex; align-items: center;
     min-height: 54px; padding: 6px 16px; border-bottom: 1px solid var(--line);
@@ -110,24 +107,7 @@
     color: var(--accent); background: none; border: none; cursor: pointer; padding: 0;
   }
 
-  /* 월 이동 */
-  .mininav-head {
-    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
-  }
-  .mininav-head .y { font-size: 14px; font-weight: 600; }
-  .mininav-head button {
-    font: inherit; font-size: 14px; color: var(--ink-2); background: none; border: none;
-    cursor: pointer; padding: 2px 7px; border-radius: 6px;
-  }
-  .mininav-head button:hover { background: var(--hover); color: var(--ink); }
-  .mininav-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-  .mininav-grid button {
-    font: inherit; font-size: 12.5px; color: var(--ink-2);
-    background: none; border: none; border-radius: 7px; padding: 6px 0; cursor: pointer;
-    transition: background .12s, color .12s;
-  }
-  .mininav-grid button:hover { background: var(--hover); color: var(--ink); }
-  .mininav-grid button.cur { background: var(--accent); color: #fff; font-weight: 600; }
+  /* 사이드바의 넓은 버튼(AI 요약 생성·월간요약 보기) */
   .mininav-today {
     width: 100%; margin-top: 8px; font: inherit; font-size: 12.5px; font-weight: 500;
     color: var(--accent); background: var(--accent-soft); border: none;
@@ -167,44 +147,75 @@
       radial-gradient(42% 36% at 84% 14%, rgba(124,92,222,.12), transparent 70%),
       radial-gradient(40% 34% at 12% 88%, rgba(0,180,180,.10), transparent 72%);
   }
-  .content-head {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; flex-wrap: wrap; padding: 14px 22px; border-bottom: 1px solid var(--line);
+  /* ── 월 인덱스: 연도 · 월 탭 12개 · 오늘 (달력 카드 바로 위에 붙는 한 줄) ───── */
+  .index-band { display: flex; align-items: flex-end; gap: 18px; padding: 14px 22px 0; }
+  .year-step { display: flex; align-items: center; gap: 2px; margin-bottom: 6px; flex-shrink: 0; }
+  .year-step .y {
+    font-size: 20px; font-weight: 700; letter-spacing: -.025em;
+    min-width: 52px; text-align: center; font-variant-numeric: tabular-nums;
   }
-  .ch-left { display: flex; align-items: center; gap: 8px; }
-  .ch-title {
-    display: inline-flex; align-items: baseline; gap: 8px; margin: 0 4px;
-    font-size: 22px; font-weight: 700; letter-spacing: -.025em;
+  .year-step button {
+    font: inherit; font-size: 15px; line-height: 1; color: var(--ink-2); background: none; border: none;
+    border-radius: 6px; padding: 5px 8px; cursor: pointer;
   }
-  .ch-title #yearLabel { font-size: 13px; font-weight: 500; color: var(--ink-3); }
-  .ch-title #label { cursor: pointer; }
-  .ch-title #label:hover { color: var(--accent); }
-  .content-head button {
-    font: inherit; font-size: 14px; background: transparent; color: var(--ink-2);
-    border: none; border-radius: 980px; padding: 7px 11px; cursor: pointer;
-    transition: background .15s, color .15s;
+  .year-step button:hover { background: var(--hover); color: var(--ink); }
+  /* 탭은 남는 폭을 똑같이 나눠 갖되 100px에서 멈춘다: 좁은 창에서는 줄고, 넓은 창에서도 막대처럼 늘어지지 않는다. */
+  .month-tabs { display: flex; align-items: flex-end; gap: 3px; min-width: 0; flex: 1 1 auto; }
+  .month-tab {
+    flex: 1 1 0; min-width: 26px; max-width: 100px; height: 34px; padding: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font: inherit; font-size: 13px; color: var(--ink-2); cursor: pointer;
+    background: rgba(255,255,255,.55); border: 1px solid var(--line); border-bottom: none;
+    border-radius: 9px 9px 0 0; transition: background .12s, color .12s;
   }
-  .content-head button:hover { background: var(--hover); color: var(--ink); }
-  #prev, #next { font-size: 16px; color: var(--ink); }
+  .month-tab:hover { background: var(--card); color: var(--ink); }
+  .month-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .month-tab .dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; }
+  .month-tab.has .dot { background: #8e8e93; }          /* 기록이 있는 달 */
+  .month-tab.now .dot { background: var(--accent); }    /* 오늘이 속한 달 */
+  /* 선택한 달: 조금 높고, 달력 카드 윗면(요일 줄)과 같은 면 색으로 이어진다. */
+  .month-tab.cur {
+    height: 42px; font-size: 15px; font-weight: 700; color: var(--ink);
+    background: var(--bg); margin-bottom: -1px; position: relative; z-index: 3;
+  }
+  .today-pill {
+    margin-left: auto; margin-bottom: 6px; flex-shrink: 0;
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); border: none; border-radius: 980px; padding: 6px 14px; cursor: pointer;
+  }
+  .today-pill:hover { background: var(--accent-line); }
+  /* 검색 중에는 전체 기간이 대상이라 월 탭을 흐리게 한다(누르면 검색을 끝내고 그 달로 간다). */
+  body[data-search="on"] .month-tabs { opacity: .5; }
+  /* 좁은 창: 간격과 글자를 조금 줄여 12개 탭이 한 줄에 들어가게 한다. */
+  @media (max-width: 1040px) {
+    .index-band { gap: 10px; }
+    .month-tabs { gap: 2px; }
+    .month-tab { font-size: 12px; }
+    .month-tab.cur { font-size: 13.5px; }
+    .year-step .y { font-size: 18px; min-width: 44px; }
+    .year-step button { padding: 5px 5px; }
+    .today-pill { padding: 6px 11px; }
+  }
+
   #search {
     font: inherit; font-size: 14px; background: var(--card); color: var(--ink);
     border: 1px solid var(--line-2); border-radius: 980px; padding: 7px 14px;
-    width: 200px; outline: none; transition: border-color .15s, box-shadow .15s;
+    width: 100%; outline: none; transition: border-color .15s, box-shadow .15s;
   }
   #search::placeholder { color: var(--ink-2); }
   #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
   #msg { padding: 10px 22px 0; color: var(--accent); font-size: 13px; }
+  #msg:empty { display: none; }
 
   #cal { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 0 22px 22px; }
   #weekhead {
     position: sticky; top: 0; z-index: 2;
-    background: rgba(223,225,232,.55);
-    backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    background: var(--bg);
     display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
     font-size: 12px; font-weight: 600; color: var(--ink-2);
     letter-spacing: .02em; padding: 11px 0;
-    border: 1px solid rgba(255,255,255,.5); border-bottom: 1px solid var(--line);
+    border: 1px solid var(--line);
     border-radius: 12px 12px 0 0;
   }
   #weekhead > div { padding-left: 11px; }
@@ -379,7 +390,7 @@
   .cell.selected { box-shadow: inset 0 0 0 1.5px var(--accent); }
 
   /* ── 전체 기간 검색 결과 (검색어가 있으면 달력 대신 표시) ───────── */
-  #searchResults { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px 22px; }
+  #searchResults { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 0 22px 22px; }
   body[data-search="on"] #cal { display: none; }
   body[data-search="on"] #searchResults { display: block; }
   .sr-card {
@@ -627,7 +638,7 @@
   <div class="app">
     <header class="window-titlebar" aria-label="창 제목 표시줄">
       <div class="window-drag-region" data-tauri-drag-region>
-        <div class="window-tab">
+        <div class="window-title">
           <img src="app-icon.svg" alt="">
           <span>EveryDoing</span>
         </div>
@@ -643,12 +654,11 @@
         <div class="side-brand">
           <div class="side-brand-label"><img src="app-icon.svg" alt="">EveryDoing</div>
         </div>
-        <div class="side-sec">
-          <div class="side-title">달력 이동 <button id="settings" class="icon-btn" title="폴더·파일유형 설정">설정</button></div>
-          <div id="monthNav"></div>
+        <div class="side-search">
+          <input id="search" type="text" placeholder="파일명·폴더 검색" title="전체 기간에서 찾습니다">
         </div>
         <div class="side-sec">
-          <div class="side-title">스캔 폴더 <span style="display:flex;gap:6px;"><button id="manageFolders">관리</button><button id="refreshScan">↺</button></span></div>
+          <div class="side-title">스캔 폴더 <span style="display:flex;gap:6px;"><button id="settings" title="폴더·파일 유형 설정">설정</button><button id="refreshScan" title="다시 스캔">↺</button></span></div>
           <div id="sideFolders"></div>
           <div id="scanStatus" class="side-status"></div>
         </div>
@@ -656,7 +666,7 @@
           <div class="side-title">파일 종류</div>
           <div id="legend"></div>
         </div>
-        <div class="side-sec">
+        <div class="side-sec pin-bottom">
           <div class="side-title">이달 요약</div>
           <div id="statBox"></div>
           <button id="genSummaries" class="mininav-today" title="설정에서 AI 요약을 켠 경우에만 동작합니다">AI 요약 생성</button>
@@ -665,14 +675,6 @@
       </aside>
 
       <main class="content">
-        <div class="content-head">
-          <div class="ch-left">
-            <button id="prev" title="이전 달">←</button>
-            <span class="ch-title"><span id="yearLabel"></span><span id="label" title="오늘로"></span></span>
-            <button id="next" title="다음 달">→</button>
-          </div>
-          <input id="search" type="text" placeholder="파일명·폴더 검색 (전체 기간)">
-        </div>
         <div id="msg"></div>
         <div id="progress-wrap" style="display:none;">
           <div id="progress-meta">
@@ -683,6 +685,15 @@
           <div class="progress-track">
             <div id="progress-bar"></div>
           </div>
+        </div>
+        <div class="index-band">
+          <div class="year-step">
+            <button id="prevYear" type="button" title="이전 해" aria-label="이전 해">‹</button>
+            <span class="y" id="yearLabel"></span>
+            <button id="nextYear" type="button" title="다음 해" aria-label="다음 해">›</button>
+          </div>
+          <div class="month-tabs" id="monthTabs" role="group" aria-label="월 이동"></div>
+          <button class="today-pill" id="todayBtn" type="button" title="오늘이 있는 달로">오늘</button>
         </div>
         <div id="cal">
           <div id="weekhead">
