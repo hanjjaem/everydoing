@@ -24,32 +24,6 @@ struct WebCache {
     result: indexer::ScanResult,
 }
 
-fn scan_config(cfg: &store::Config) -> indexer::ScanResult {
-    let roots: Vec<_> = cfg.scan_paths.iter().filter(|p| {
-        let trimmed = p.trim_end_matches('\\');
-        trimmed.len() == 2 && trimmed.as_bytes()[1] == b':'
-    }).cloned().collect();
-    let folders: Vec<_> = cfg.scan_paths.iter()
-        .filter(|p| !roots.contains(p) && !indexer::path_matches(p, &roots))
-        .cloned().collect();
-    let mut combined = indexer::ScanResult { files: BTreeMap::new(), skipped: Vec::new() };
-    if !roots.is_empty() {
-        let mut root_cfg = cfg.clone();
-        root_cfg.scan_paths = roots;
-        let result = indexer::scan_without_progress(&root_cfg);
-        combined.files = result.files;
-        combined.skipped = result.skipped;
-    }
-    if !folders.is_empty() {
-        let mut folder_cfg = cfg.clone();
-        folder_cfg.scan_paths = folders;
-        let result = indexer::scan_walk(&folder_cfg);
-        for (date, files) in result.files { combined.files.entry(date).or_default().extend(files); }
-        combined.skipped.extend(result.skipped);
-    }
-    combined
-}
-
 fn read_map(path: &Path) -> Result<BTreeMap<String, String>, String> {
     match std::fs::read(path) {
         Ok(data) => serde_json::from_slice(&data).map_err(|e| e.to_string()),
@@ -84,8 +58,9 @@ fn invoke(state: &mut State, cmd: &str, args: &Value) -> Result<Value, String> {
         }
         "load_cache" => Ok(state.scan.as_ref().map(|s| json!(s)).unwrap_or(Value::Null)),
         "start_scan" => {
-            let result = scan_config(&state.config);
-            if !result.skipped.is_empty() {
+            let result = indexer::scan_all(&state.config, None);
+            // 데스크톱 앱과 같은 기준: 스캔 폴더 자체를 못 읽었을 때만 실패로 본다.
+            if result.root_failed {
                 return Err(format!("스캔을 완료하지 못했습니다: {}", result.skipped.iter().take(3).cloned().collect::<Vec<_>>().join(", ")));
             }
             let cache = WebCache { scan_paths: state.config.scan_paths.clone(), extensions: state.config.extensions.clone(), result: result.clone() };
@@ -105,10 +80,11 @@ fn invoke(state: &mut State, cmd: &str, args: &Value) -> Result<Value, String> {
         "get_summaries" | "get_monthly_summaries" => Ok(json!({})),
         "save_summary" | "generate_summaries" | "generate_monthly_summary" => Err("브라우저 개발 모드에서는 AI 요약을 지원하지 않습니다.".into()),
         "prune_deleted" => {
-            if let Some(ref mut scan) = state.scan {
-                for files in scan.files.values_mut() { files.retain(|f| Path::new(&f.path).exists()); }
-            }
-            Ok(state.scan.as_ref().map(|s| json!(s)).unwrap_or(Value::Null))
+            let removed = match state.scan {
+                Some(ref mut scan) => indexer::prune_month(scan, get("month"), |path| !Path::new(path).exists()),
+                None => Vec::new(),
+            };
+            Ok(json!(removed))
         }
         "open_path" => {
             let path = get("path");
@@ -165,6 +141,7 @@ fn handle(mut stream: TcpStream, state: &mut State, port: u16, token: &str, root
             }
             "/app.js" => (std::fs::read(root.join("static/app.js")).map_err(|e| e.to_string())?, "text/javascript; charset=utf-8"),
             "/app-icon.svg" => (std::fs::read(root.join("static/app-icon.svg")).map_err(|e| e.to_string())?, "image/svg+xml"),
+            "/fonts/PretendardVariable.woff2" => (std::fs::read(root.join("static/fonts/PretendardVariable.woff2")).map_err(|e| e.to_string())?, "font/woff2"),
             "/bridge.js" => (std::fs::read(root.join("dev-web/bridge.js")).map_err(|e| e.to_string())?, "text/javascript; charset=utf-8"),
             _ => { respond(&mut stream, "404 Not Found", "text/plain", b"Not found").map_err(|e| e.to_string())?; return Ok(()); }
         };

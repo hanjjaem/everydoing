@@ -3,9 +3,14 @@
 <head>
 <meta charset="utf-8">
 <title>EveryDoing</title>
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <style>
+  /* 글꼴은 앱에 함께 담는다(외부 요청 없음). 라이선스: fonts/LICENSE.txt */
+  @font-face {
+    font-family: "Pretendard"; font-weight: 45 920; font-style: normal; font-display: swap;
+    src: url("fonts/PretendardVariable.woff2") format("woff2-variations");
+  }
   :root {
+    --titlebar-h: 0px;
     --bg: #eceef2;
     --card: #ffffff;
     --card-empty: #f6f7f9;
@@ -42,6 +47,7 @@
   }
 
   /* 데스크톱 창틀: 브라우저 개발 모드에는 표시하지 않는다. */
+  :root.desktop-shell { --titlebar-h: 40px; }
   .window-titlebar { display: none; }
   .desktop-shell .window-titlebar {
     display: flex; flex-shrink: 0; height: 40px; align-items: stretch;
@@ -97,7 +103,7 @@
   .side-title {
     display: flex; align-items: center; justify-content: space-between;
     font-size: 11px; font-weight: 600; letter-spacing: .04em;
-    text-transform: uppercase; color: var(--ink-3); margin-bottom: 11px;
+    text-transform: uppercase; color: var(--ink-2); margin-bottom: 11px;
   }
   .side-title button {
     font: inherit; font-size: 11px; letter-spacing: 0; text-transform: none;
@@ -138,7 +144,9 @@
     content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--ink-3); flex-shrink: 0;
   }
   .side-folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
-  .side-empty { font-size: 12.5px; color: var(--ink-3); }
+  .side-empty { font-size: 12.5px; color: var(--ink-2); }
+  .side-status { font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+  .side-status:empty { display: none; }
 
   /* 칩 범례 */
   .legend-row { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-2); padding: 3px 0; }
@@ -147,8 +155,8 @@
   .stat-row { display: flex; align-items: baseline; gap: 7px; }
   .stat-num { font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
   .stat-label { font-size: 13px; color: var(--ink-2); }
-  .stat-sub { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
-  .stat-sub b { color: var(--ink-2); font-weight: 600; }
+  .stat-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 8px; }
+  .stat-sub b { color: var(--ink); font-weight: 600; }
 
   /* ── 메인 (달력) ───────────────────────── */
   .content { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; isolation: isolate; }
@@ -183,7 +191,7 @@
     border: 1px solid var(--line-2); border-radius: 980px; padding: 7px 14px;
     width: 200px; outline: none; transition: border-color .15s, box-shadow .15s;
   }
-  #search::placeholder { color: var(--ink-3); }
+  #search::placeholder { color: var(--ink-2); }
   #search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
   #msg { padding: 10px 22px 0; color: var(--accent); font-size: 13px; }
@@ -193,7 +201,7 @@
     position: sticky; top: 0; z-index: 2;
     background: rgba(223,225,232,.55);
     backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
-    display: grid; grid-template-columns: repeat(7, 1fr);
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
     font-size: 12px; font-weight: 600; color: var(--ink-2);
     letter-spacing: .02em; padding: 11px 0;
     border: 1px solid rgba(255,255,255,.5); border-bottom: 1px solid var(--line);
@@ -203,7 +211,8 @@
 
   #grid {
     flex: 1; min-height: min-content;
-    display: grid; grid-template-columns: repeat(7, 1fr);
+    /* minmax(0, 1fr): 긴 파일명이 열을 밀어내지 못하게 해 7열 너비를 똑같이 유지한다. */
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
     grid-auto-rows: 1fr;
     gap: 0; background: rgba(255,255,255,.22);
     backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
@@ -233,11 +242,11 @@
   }
 
   /* 주말 (일=빨강, 토=파랑) — 진짜 달력 느낌 */
-  #weekhead > div:first-child { color: #e5484d; }
+  #weekhead > div:first-child { color: #cc2d34; }
   #weekhead > div:last-child  { color: #2f6bd8; }
   #grid > .cell:nth-child(7n+1) { background-color: rgba(255,228,228,.40); }   /* 일요일 칸 */
   #grid > .cell:nth-child(7n)   { background-color: rgba(223,233,253,.40); }   /* 토요일 칸 */
-  #grid > .cell:nth-child(7n+1):not(.today) .daynum { color: #e5484d; }
+  #grid > .cell:nth-child(7n+1):not(.today) .daynum { color: #cc2d34; }
   #grid > .cell:nth-child(7n):not(.today) .daynum   { color: #2f6bd8; }
 
   .act-chips { display: flex; align-items: center; }
@@ -267,13 +276,14 @@
   }
 
   /* ── 설정 패널 (좌측 슬라이드 오버레이) ───────── */
+  /* 덮개·패널은 제목 표시줄 아래에서 시작한다(창 이동·닫기 버튼을 가리지 않게). */
   #scrim {
-    position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.28);
+    position: fixed; inset: var(--titlebar-h) 0 0 0; z-index: 55; background: rgba(0,0,0,.28);
     opacity: 0; pointer-events: none; transition: opacity .3s ease;
   }
   body[data-settings="open"] #scrim, body[data-timeline="open"] #scrim { opacity: 1; pointer-events: auto; }
   #panel {
-    position: fixed; top: 0; left: 0; z-index: 61; width: min(440px, 92vw); height: 100vh;
+    position: fixed; top: var(--titlebar-h); left: 0; z-index: 61; width: min(440px, 92vw); height: calc(100vh - var(--titlebar-h));
     overflow-y: auto; background: var(--card); border-right: 1px solid var(--line);
     box-shadow: 0 0 60px rgba(0,0,0,.16); padding: 32px 28px;
     transform: translateX(-100%); transition: transform .3s cubic-bezier(.22,1,.36,1);
@@ -302,7 +312,7 @@
 
   /* ── 타임라인 (우측 드로어) ───────────── */
   #timeline {
-    position: fixed; top: 0; right: 0; z-index: 60; width: min(var(--tlw), 92vw); height: 100vh;
+    position: fixed; top: var(--titlebar-h); right: 0; z-index: 60; width: min(var(--tlw), 92vw); height: calc(100vh - var(--titlebar-h));
     overflow-y: auto; display: flex; flex-direction: column; gap: 24px;
     background: var(--card); border-left: 1px solid var(--line);
     box-shadow: 0 0 60px rgba(0,0,0,.16); padding: 32px 28px;
@@ -317,8 +327,13 @@
     padding: 8px 10px; margin: 0 -10px; border-radius: 10px; cursor: pointer; transition: background .15s;
   }
   .tl-file:hover { background: var(--hover); }
+  .tl-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .tl-name { font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tl-file:hover .tl-name { color: var(--accent); }
+  .tl-meta { display: flex; gap: 6px; font-size: 12px; color: var(--ink-2); min-width: 0; }
+  .tl-time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  /* 긴 폴더 경로는 왼쪽을 줄여 끝(가까운 폴더)이 보이게 한다. 글자 순서는 <bdi>가 지킨다. */
+  .tl-folder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
   .tl-actions { display: none; gap: 4px; flex-shrink: 0; }
   .tl-file:hover .tl-actions { display: flex; }
   .tl-actions button {
@@ -362,6 +377,19 @@
     background: var(--accent); color: #fff; border: none; border-radius: 980px; padding: 9px 18px; cursor: pointer;
   }
   .cell.selected { box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+  /* ── 전체 기간 검색 결과 (검색어가 있으면 달력 대신 표시) ───────── */
+  #searchResults { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px 22px; }
+  body[data-search="on"] #cal { display: none; }
+  body[data-search="on"] #searchResults { display: block; }
+  .sr-card {
+    display: flex; flex-direction: column; gap: 24px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 22px 28px;
+  }
+  .sr-head { font-size: 13px; color: var(--ink-2); }
+  .sr-date { cursor: pointer; }
+  .sr-date:hover { color: var(--accent); }
+  .sr-count { font-size: 12px; font-weight: 400; color: var(--ink-2); margin-left: 8px; }
 
   @media (max-width: 760px) {
     .sidebar { display: none; }
@@ -482,7 +510,7 @@
   }
   /* ── 월간요약 모달 (프리미엄) ───────────────── */
   #monthModal {
-    position: fixed; inset: 0; z-index: 62;
+    position: fixed; inset: var(--titlebar-h) 0 0 0; z-index: 62;
     display: flex; align-items: center; justify-content: center; padding: 24px;
     background: rgba(18,20,26,.42); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
     opacity: 0; pointer-events: none; transition: opacity .22s ease;
@@ -586,7 +614,7 @@
       AI 요약 사용
     </label>
     <p style="font-size:13px;color:var(--ink-2);margin:6px 0;">파일명으로 그날 업무를 요약합니다. 끄면(기본값) 외부로 전송되는 데이터가 전혀 없습니다.</p>
-    <p style="font-size:12px;color:#b15c00;background:#fff4e0;border:1px solid #ffd596;border-radius:6px;padding:8px 10px;margin:6px 0;">
+    <p style="font-size:12px;color:#9a5200;background:#fff4e0;border:1px solid #ffd596;border-radius:6px;padding:8px 10px;margin:6px 0;">
       ⚠ 켜고 요약을 생성하면 <b>해당 기간의 파일명이 OpenAI 서버로 전송</b>됩니다. 파일 내용은 전송되지 않습니다.
     </p>
     <input id="apiKeyInput" type="password" placeholder="OpenAI API 키 (sk-...)" style="width:100%;margin-bottom:4px;">
@@ -622,6 +650,7 @@
         <div class="side-sec">
           <div class="side-title">스캔 폴더 <span style="display:flex;gap:6px;"><button id="manageFolders">관리</button><button id="refreshScan">↺</button></span></div>
           <div id="sideFolders"></div>
+          <div id="scanStatus" class="side-status"></div>
         </div>
         <div class="side-sec">
           <div class="side-title">파일 종류</div>
@@ -642,7 +671,7 @@
             <span class="ch-title"><span id="yearLabel"></span><span id="label" title="오늘로"></span></span>
             <button id="next" title="다음 달">→</button>
           </div>
-          <input id="search" type="text" placeholder="파일명 검색">
+          <input id="search" type="text" placeholder="파일명·폴더 검색 (전체 기간)">
         </div>
         <div id="msg"></div>
         <div id="progress-wrap" style="display:none;">
@@ -657,10 +686,11 @@
         </div>
         <div id="cal">
           <div id="weekhead">
-            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
           </div>
           <div id="grid"></div>
         </div>
+        <div id="searchResults"></div>
       </main>
     </div>
   </div>

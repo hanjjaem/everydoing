@@ -41,6 +41,7 @@ let scanning = false;
 let loaded = false;
 let summaries = {};
 let monthlySummaries = {};
+let lastScan = 0;          // 마지막으로 스캔을 마친 시각(Unix 초). 0이면 모름.
 let fileMenuPath = null;
 
 function showFileMenu(e, path, fullName) {
@@ -72,10 +73,49 @@ const LEGEND = [
   { color: "#E5252A", label: "PDF", name: "PDF" },
 ];
 
+// 파일명이나 폴더 경로에 검색어가 들어 있는지.
+function matchesQuery(f, norm) {
+  return (f.name || "").toLowerCase().includes(norm) || (f.path || "").toLowerCase().includes(norm);
+}
+
 function filterFiles(files, q) {
   const norm = (q || "").trim().toLowerCase();
   if (!norm) return files;
-  return files.filter(f => (f.name || "").toLowerCase().includes(norm));
+  return files.filter(f => matchesQuery(f, norm));
+}
+
+const SEARCH_LIMIT = 300;
+
+// 전체 기간에서 검색어에 맞는 파일을 최근 날짜부터 모은다. 화면에는 limit개까지만 담는다.
+function searchAll(data, q, limit) {
+  const norm = (q || "").trim().toLowerCase();
+  const groups = [];
+  let total = 0, shown = 0;
+  if (!norm) return { groups, total, shown };
+  const dates = Object.keys(data).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort().reverse();
+  for (const date of dates) {
+    const hits = data[date].filter(f => matchesQuery(f, norm));
+    if (!hits.length) continue;
+    total += hits.length;
+    if (shown >= limit) continue;
+    const files = hits.slice(0, limit - shown);
+    shown += files.length;
+    groups.push({ date, files, count: hits.length });
+  }
+  return { groups, total, shown };
+}
+
+// 수정 시각(Unix 초) → "14:05". 시각을 모르면(옛 색인) 빈 문자열.
+function timeOf(f) {
+  if (!f.modified) return "";
+  const d = new Date(f.modified * 1000);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+// 파일이 들어 있는 폴더 경로.
+function folderOf(path) {
+  const i = Math.max((path || "").lastIndexOf("\\"), (path || "").lastIndexOf("/"));
+  return i > 0 ? path.slice(0, i) : "";
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -160,12 +200,15 @@ async function load() {
   console.log("[load] 캐시:", cached ? `있음 (날짜 ${Object.keys(cached.files||{}).length}개)` : "없음");
   if (cached) {
     data = cached.files || {};
+    lastScan = cached.scanned_at || 0;
     summaries = await invoke("get_summaries").catch(e => { alert("일별 요약을 불러오지 못했습니다: " + e); return {}; });
     monthlySummaries = await invoke("get_monthly_summaries").catch(e => { alert("월간 요약을 불러오지 못했습니다: " + e); return {}; });
     msg.textContent = "";
     animateNext = true;
     renderAll();
     // 자동 생성하지 않음. AI 요약은 사용자가 '_AI 요약 생성_' 버튼을 눌렀을 때만 전송된다.
+    // 저장된 기록을 먼저 보여 주고, 마지막 스캔 뒤에 바뀐 파일은 뒤에서 다시 스캔해 반영한다.
+    await startScan({ quiet: true });
     return;
   }
 
@@ -173,7 +216,14 @@ async function load() {
   await startScan();
 }
 
-async function startScan() {
+// 메모나 요약을 입력하는 중인지. 입력 중에는 화면을 다시 그리지 않는다.
+function isEditing() {
+  const ae = document.activeElement;
+  return !!ae && /^(memo-edit|day-summary-input|tl-summary-input)$/.test(ae.className || "");
+}
+
+// quiet: 저장된 기록을 보여 준 채 뒤에서 스캔한다(큰 진행 표시 없이 사이드바에만 표시).
+async function startScan({ quiet = false } = {}) {
   if (scanning) return;
   scanning = true;
   const msg = document.getElementById("msg");
@@ -183,7 +233,8 @@ async function startScan() {
   const elapsed = document.getElementById("progress-elapsed");
 
   msg.textContent = "";
-  wrap.style.display = "block";
+  wrap.style.display = quiet ? "none" : "block";
+  renderScanStatus();
   label.textContent = "스캔 준비 중...";
   sub.textContent = "";
   elapsed.textContent = "";
@@ -207,6 +258,7 @@ async function startScan() {
     unlistenDone();
     scanning = false;
     wrap.style.display = "none";
+    renderScanStatus();
   };
 
   try {
@@ -222,15 +274,24 @@ async function startScan() {
     });
 
     unlistenDone = await listen("scan-done", async (e) => {
-      finishScan();
       const result = e.payload;
-      data = result.files || {};
-      const totalFiles = Object.values(data).reduce((s, arr) => s + arr.length, 0);
+      // 뒤에서 돈 재스캔이 스캔 폴더 자체를 읽지 못했으면, 화면의 기존 기록을 그대로 둔다.
+      const keepShown = quiet && result.root_failed;
+      if (!keepShown) data = result.files || {};
+      if (!result.root_failed) lastScan = result.scanned_at || 0;
+      finishScan();
       if (result.skipped && result.skipped.length > 0) {
         const extra = result.skipped.length > 3 ? ` 외 ${result.skipped.length - 3}건` : "";
-        msg.textContent = "일부 스캔 또는 캐시 저장 실패: " + result.skipped.slice(0, 3).join(", ") + extra;
+        const head = keepShown ? "스캔 폴더를 읽지 못해 이전 기록을 표시합니다: " : "일부 스캔 또는 캐시 저장 실패: ";
+        msg.textContent = head + result.skipped.slice(0, 3).join(", ") + extra;
       } else {
         msg.textContent = "";
+      }
+      if (quiet) {
+        // 입력 중이면 입력이 끝난 뒤에 그린다.
+        if (isEditing()) document.activeElement.addEventListener("blur", () => setTimeout(renderAll, 0), { once: true });
+        else renderAll();
+        return;
       }
       animateNext = true;
       renderAll();
@@ -304,8 +365,8 @@ function render() {
         badge.textContent = badgeFor(ext);
         const name = document.createElement("span");
         name.className = "file-row-name";
-        const stem = f.name.replace(/\.[^.]+$/, "");
-        name.textContent = stem.length > 10 ? stem.slice(0, 10) + "…" : stem;
+        // 글자 수로 자르지 않는다. 칸 너비에 맞춰 CSS가 말줄임한다.
+        name.textContent = f.name.replace(/\.[^.]+$/, "");
         row.appendChild(badge);
         row.appendChild(name);
         row.onclick = (e) => { e.stopPropagation(); showFileMenu(e, f.path, f.name); };
@@ -371,6 +432,12 @@ function render() {
     attachMemo(cell, cellKey);
     grid.appendChild(cell);
   }
+  // 마지막 주의 남는 자리도 빈 칸으로 채워 격자가 끊기지 않게 한다.
+  for (let i = (7 - ((first + days) % 7)) % 7; i > 0; i--) {
+    const pad = document.createElement("div");
+    pad.className = "cell";
+    grid.appendChild(pad);
+  }
   monthStats = { activeDays, totalFiles, busyDate, busyCount };
   animateNext = false;
 }
@@ -421,6 +488,7 @@ function renderAll() {
   renderSidebar();
   renderTimeline();
   renderMonthSummary();
+  renderSearch();
 }
 
 function monthKey(y, m) {
@@ -561,6 +629,7 @@ function renderMonthSummary() {
 function renderSidebar() {
   renderMonthNav();
   renderFolders();
+  renderScanStatus();
   renderLegend();
   renderStats();
 }
@@ -612,11 +681,27 @@ function renderFolders() {
     const row = document.createElement("div");
     row.className = "side-folder";
     const s = document.createElement("span");
-    s.textContent = p;
+    // 긴 경로를 왼쪽에서 줄이려고 span이 rtl이다. <bdi>로 감싸 "D:\"의 글자 순서를 지킨다.
+    const text = document.createElement("bdi");
+    text.textContent = p;
+    s.appendChild(text);
     s.title = p;
     row.appendChild(s);
     box.appendChild(row);
   });
+}
+
+function formatScanTime(secs) {
+  const d = new Date(secs * 1000), now = new Date();
+  const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? "오늘 " + hm : (d.getMonth() + 1) + "월 " + d.getDate() + "일 " + hm;
+}
+
+function renderScanStatus() {
+  const el = document.getElementById("scanStatus");
+  if (scanning) el.textContent = "업데이트 중…";
+  else el.textContent = lastScan ? "마지막 스캔 " + formatScanTime(lastScan) : "";
 }
 
 function renderLegend() {
@@ -738,24 +823,108 @@ function renderTimeline() {
       h.appendChild(sumSpan);
     }
     grp.appendChild(h);
-    g.files.forEach(f => {
-      const row = document.createElement("div");
-      row.className = "tl-file";
-      const name = document.createElement("span");
-      name.className = "tl-name";
-      name.textContent = f.name;
-      row.appendChild(name);
-      const acts = document.createElement("span");
-      acts.className = "tl-actions";
-      acts.appendChild(actionBtn("열기", e => { e.stopPropagation(); openFile(f.path, "file"); }));
-      acts.appendChild(actionBtn("폴더", e => { e.stopPropagation(); openFile(f.path, "folder"); }));
-      acts.appendChild(actionBtn("경로", e => { e.stopPropagation(); invoke("copy_text", { text: f.path }); }));
-      row.appendChild(acts);
-      row.onclick = () => openFile(f.path, "file");
-      grp.appendChild(row);
-    });
+    g.files.forEach(f => grp.appendChild(fileRow(f)));
     tl.appendChild(grp);
   });
+}
+
+// 파일 한 줄: 파일명 + (수정 시각 · 폴더) + 열기/폴더/경로 버튼. 드로어와 검색 결과가 같이 쓴다.
+function fileRow(f) {
+  const row = document.createElement("div");
+  row.className = "tl-file";
+  const main = document.createElement("span");
+  main.className = "tl-main";
+  const name = document.createElement("span");
+  name.className = "tl-name";
+  name.textContent = f.name;
+  main.appendChild(name);
+  const time = timeOf(f), folder = folderOf(f.path);
+  if (time || folder) {
+    const meta = document.createElement("span");
+    meta.className = "tl-meta";
+    if (time) {
+      const t = document.createElement("span");
+      t.className = "tl-time";
+      t.textContent = time;
+      meta.appendChild(t);
+    }
+    if (folder) {
+      const fo = document.createElement("span");
+      fo.className = "tl-folder";
+      fo.title = folder;
+      const text = document.createElement("bdi");
+      text.textContent = folder;
+      fo.appendChild(text);
+      meta.appendChild(fo);
+    }
+    main.appendChild(meta);
+  }
+  row.appendChild(main);
+  const acts = document.createElement("span");
+  acts.className = "tl-actions";
+  acts.appendChild(actionBtn("열기", e => { e.stopPropagation(); openFile(f.path, "file"); }));
+  acts.appendChild(actionBtn("폴더", e => { e.stopPropagation(); openFile(f.path, "folder"); }));
+  acts.appendChild(actionBtn("경로", async e => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    try { await invoke("copy_text", { text: f.path }); btn.textContent = "복사됨"; }
+    catch (_) { btn.textContent = "복사 실패"; }
+    setTimeout(() => { btn.textContent = "경로"; }, 1200);
+  }));
+  row.appendChild(acts);
+  row.onclick = () => openFile(f.path, "file");
+  return row;
+}
+
+function formatFullDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return y + "년 " + m + "월 " + d + "일 " + WEEKDAYS[new Date(y, m - 1, d).getDay()] + "요일";
+}
+
+// 검색어가 있으면 달력 대신 전체 기간의 결과를 최근 날짜부터 보여 준다.
+function renderSearch() {
+  const box = document.getElementById("searchResults");
+  box.innerHTML = "";
+  if (!query.trim()) { document.body.removeAttribute("data-search"); return; }
+  document.body.setAttribute("data-search", "on");
+  const { groups, total, shown } = searchAll(data, query, SEARCH_LIMIT);
+  const card = document.createElement("div");
+  card.className = "sr-card";
+  const head = document.createElement("div");
+  head.className = "sr-head";
+  head.textContent = !total ? "검색 결과가 없어요."
+    : "전체 기간에서 " + total.toLocaleString() + "건"
+      + (total > shown ? " · 최근 " + shown.toLocaleString() + "건만 표시합니다. 검색어를 더 넣어 좁혀 보세요." : "");
+  card.appendChild(head);
+  groups.forEach(g => {
+    const grp = document.createElement("div");
+    grp.className = "tl-group";
+    const h = document.createElement("div");
+    h.className = "tl-date sr-date";
+    h.title = "이 날짜의 달력으로 이동";
+    h.textContent = formatFullDate(g.date);
+    const count = document.createElement("span");
+    count.className = "sr-count";
+    count.textContent = g.count + "건";
+    h.appendChild(count);
+    h.onclick = () => jumpToDate(g.date);
+    grp.appendChild(h);
+    g.files.forEach(f => grp.appendChild(fileRow(f)));
+    card.appendChild(grp);
+  });
+  box.appendChild(card);
+}
+
+// 검색 결과의 날짜를 누르면 검색을 끝내고 그 달로 가서 그 날을 연다.
+function jumpToDate(dateStr) {
+  const [y, m] = dateStr.split("-").map(Number);
+  cur = new Date(y, m - 1, 1);
+  query = "";
+  document.getElementById("search").value = "";
+  selectedDate = null;
+  animateNext = true;
+  renderAll();
+  selectDate(dateStr);
 }
 
 function selectDate(dateStr) {
@@ -793,10 +962,21 @@ document.getElementById("next").onclick = () => { cur = new Date(cur.getFullYear
 window.addEventListener("focus", async () => {
   if (!loaded) { load(); return; }
   if (scanning) return;
-  const result = await invoke("prune_deleted").catch(() => null);
-  if (result) { data = result.files || {}; renderAll(); }
+  // 보고 있는 달의 파일만 확인한다. 지워진 것이 있을 때만 화면을 다시 그린다.
+  const month = monthKey(cur.getFullYear(), cur.getMonth());
+  const removed = await invoke("prune_deleted", { month }).catch(() => []);
+  if (!removed || !removed.length) return;
+  const gone = new Set(removed);
+  for (const date of Object.keys(data)) {
+    data[date] = data[date].filter(f => !gone.has(f.path));
+    if (!data[date].length) delete data[date];
+  }
+  if (!isEditing()) renderAll();
 });
 document.getElementById("search").oninput = (e) => { query = e.target.value; renderAll(); };
+document.getElementById("search").onkeydown = (e) => {
+  if (e.key === "Escape" && query) { e.stopPropagation(); query = ""; e.target.value = ""; renderAll(); }
+};
 document.getElementById("label").style.cursor = "pointer";
 document.getElementById("label").title = "오늘로";
 document.getElementById("label").onclick = () => { cur = new Date(); selectedDate = null; animateNext = true; renderAll(); };
@@ -951,7 +1131,7 @@ document.addEventListener("click", hideFileMenu);
 
 document.getElementById("settings").onclick = openPanel;
 document.getElementById("manageFolders").onclick = openPanel;
-document.getElementById("refreshScan").onclick = startScan;
+document.getElementById("refreshScan").onclick = () => startScan();
 document.getElementById("genSummaries").onclick = genSummaries;
 document.getElementById("genMonthSummary").onclick = genMonthSummary;
 document.getElementById("openMonthModal").onclick = openMonthModal;

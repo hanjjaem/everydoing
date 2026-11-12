@@ -272,19 +272,40 @@ mod tests {
         files.insert("2026-06-29".to_string(), vec![FileItem {
             name: "a.pdf".to_string(),
             path: "D:\\test\\a.pdf".to_string(),
+            modified: 1781222400,
         }]);
-        let result = ScanResult { files, skipped: vec![] };
+        let result = ScanResult { files, scanned_at: 1781222500, ..Default::default() };
         let path = std::env::temp_dir().join(format!("everydoing-index-roundtrip-{}.json", std::process::id()));
         save_index_at(&path, &cfg, &result).unwrap();
         let loaded = load_index_at(&path, &cfg).unwrap();
         assert_eq!(loaded.files["2026-06-29"][0].name, "a.pdf");
+        assert_eq!(loaded.files["2026-06-29"][0].modified, 1781222400);
+        assert_eq!(loaded.scanned_at, 1781222500);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn index_from_older_version_still_loads() {
+        // 수정 시각·스캔 시각이 없던 0.1.0 색인도 그대로 읽혀야 한다.
+        let cfg = Config {
+            scan_paths: vec!["D:\\test".to_string()],
+            extensions: vec!["pdf".to_string()],
+            ..Default::default()
+        };
+        let old = r#"{"scan_paths":["D:\\test"],"extensions":["pdf"],
+            "files":{"2026-06-29":[{"name":"a.pdf","path":"D:\\test\\a.pdf"}]},"skipped":[]}"#;
+        let path = std::env::temp_dir().join(format!("everydoing-index-old-{}.json", std::process::id()));
+        std::fs::write(&path, old).unwrap();
+        let loaded = load_index_at(&path, &cfg).unwrap();
+        assert_eq!(loaded.files["2026-06-29"][0].modified, 0);
+        assert_eq!(loaded.scanned_at, 0);
+        assert!(!loaded.root_failed);
         std::fs::remove_file(path).unwrap();
     }
 
     #[test]
     fn index_invalidated_when_paths_differ() {
         use crate::indexer::ScanResult;
-        use std::collections::BTreeMap;
         let cfg_a = Config {
             scan_paths: vec!["D:\\a".to_string()],
             extensions: vec!["pdf".to_string()],
@@ -295,7 +316,7 @@ mod tests {
             extensions: vec!["pdf".to_string()],
             ..Default::default()
         };
-        let result = ScanResult { files: BTreeMap::new(), skipped: vec![] };
+        let result = ScanResult::default();
         let path = std::env::temp_dir().join(format!("everydoing-index-invalidated-{}.json", std::process::id()));
         save_index_at(&path, &cfg_a, &result).unwrap();
         assert!(load_index_at(&path, &cfg_b).is_none());
