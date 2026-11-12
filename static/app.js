@@ -1,6 +1,34 @@
 const invoke = window.__TAURI__.core.invoke;
 const listen = window.__TAURI__.event.listen;
 
+// The browser development bridge does not expose native window controls.
+if (window.__TAURI__.window?.getCurrentWindow) {
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+  const maximizeButton = document.getElementById("window-maximize");
+  document.documentElement.classList.add("desktop-shell");
+
+  const refreshMaximizeButton = async () => {
+    try {
+      const maximized = await appWindow.isMaximized();
+      maximizeButton.classList.toggle("is-maximized", maximized);
+      maximizeButton.setAttribute("aria-label", maximized ? "이전 크기로" : "최대화");
+      maximizeButton.title = maximized ? "이전 크기로" : "최대화";
+    } catch (error) { console.error("창 상태를 확인하지 못했습니다:", error); }
+  };
+  document.getElementById("window-minimize").addEventListener("click", () => {
+    appWindow.minimize().catch(error => console.error("창을 최소화하지 못했습니다:", error));
+  });
+  maximizeButton.addEventListener("click", async () => {
+    try { await appWindow.toggleMaximize(); await refreshMaximizeButton(); }
+    catch (error) { console.error("창 크기를 변경하지 못했습니다:", error); }
+  });
+  document.getElementById("window-close").addEventListener("click", () => {
+    appWindow.close().catch(error => console.error("창을 닫지 못했습니다:", error));
+  });
+  window.addEventListener("resize", refreshMaximizeButton);
+  refreshMaximizeButton();
+}
+
 let data = {};
 let cur = new Date();
 let query = "";

@@ -7,7 +7,7 @@
   "app": {
     "withGlobalTauri": true,
     "windows": [
-      { "title": "EveryDoing", "width": 1280, "height": 840, "minWidth": 900, "minHeight": 600 }
+      { "title": "EveryDoing", "width": 1280, "height": 840, "minWidth": 900, "minHeight": 600, "decorations": false }
     ],
     "security": { "csp": null }
   },

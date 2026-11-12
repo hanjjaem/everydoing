@@ -164,6 +164,7 @@ fn handle(mut stream: TcpStream, state: &mut State, port: u16, token: &str, root
                 (html.into_bytes(), "text/html; charset=utf-8")
             }
             "/app.js" => (std::fs::read(root.join("static/app.js")).map_err(|e| e.to_string())?, "text/javascript; charset=utf-8"),
+            "/app-icon.svg" => (std::fs::read(root.join("static/app-icon.svg")).map_err(|e| e.to_string())?, "image/svg+xml"),
             "/bridge.js" => (std::fs::read(root.join("dev-web/bridge.js")).map_err(|e| e.to_string())?, "text/javascript; charset=utf-8"),
             _ => { respond(&mut stream, "404 Not Found", "text/plain", b"Not found").map_err(|e| e.to_string())?; return Ok(()); }
         };

@@ -41,24 +41,35 @@
     box-shadow: none; overflow: hidden;
   }
 
-  /* 상단 앱바 */
-  .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 18px; height: 54px; flex-shrink: 0;
-    border-bottom: 1px solid var(--line);
+  /* 데스크톱 창틀: 브라우저 개발 모드에는 표시하지 않는다. */
+  .window-titlebar { display: none; }
+  .desktop-shell .window-titlebar {
+    display: flex; flex-shrink: 0; height: 40px; align-items: stretch;
+    background: #f1f2f4; border-bottom: 1px solid var(--line);
+    user-select: none;
   }
-  .brand {
-    display: inline-flex; align-items: center;
-    font-size: 18px; font-weight: 600; letter-spacing: -.025em; color: var(--ink);
+  .window-drag-region {
+    flex: 1; min-width: 0; display: flex; align-items: end;
+    padding: 5px 0 0 10px;
   }
-  .brand span { color: var(--accent); font-weight: 700; }
-  .brand::before {
-    content: ""; width: 22px; height: 22px; border-radius: 7px; margin-right: 8px;
-    background: var(--accent);
-    -webkit-mask: center/16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E");
-    mask: center/16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E");
+  .window-tab {
+    display: flex; align-items: center; gap: 8px; height: 34px;
+    min-width: 164px; padding: 0 13px; border-radius: 9px 9px 0 0;
+    background: var(--card); color: var(--ink); font-size: 12px; font-weight: 600;
+    pointer-events: none;
   }
-  .topbar-actions { display: flex; align-items: center; gap: 4px; }
+  .window-tab img { width: 18px; height: 18px; flex: none; }
+  .window-controls { display: flex; flex-shrink: 0; }
+  .window-control {
+    display: grid; place-items: center; width: 46px; height: 39px;
+    padding: 0; border: 0; background: transparent; color: #45464a; cursor: pointer;
+  }
+  .window-control:hover { background: #dedfe2; }
+  .window-control:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .window-control.close:hover { background: #c42b1c; color: white; }
+  .window-control svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.2; }
+  .window-control .restore-icon, .window-control.is-maximized .maximize-icon { display: none; }
+  .window-control.is-maximized .restore-icon { display: block; }
   .icon-btn {
     font: inherit; font-size: 14px; background: transparent; color: var(--ink-2);
     border: none; border-radius: 8px; padding: 7px 12px; cursor: pointer;
@@ -76,9 +87,12 @@
     background: var(--side); border-right: 1px solid var(--line);
   }
   .side-brand {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center;
+    min-height: 54px; padding: 6px 16px; border-bottom: 1px solid var(--line);
   }
+  .desktop-shell .side-brand { display: none; }
+  .side-brand-label { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+  .side-brand-label img { width: 22px; height: 22px; }
   .side-sec { padding: 16px 16px; border-bottom: 1px solid var(--line); }
   .side-title {
     display: flex; align-items: center; justify-content: space-between;
@@ -583,14 +597,26 @@
   </div>
 
   <div class="app">
+    <header class="window-titlebar" aria-label="창 제목 표시줄">
+      <div class="window-drag-region" data-tauri-drag-region>
+        <div class="window-tab">
+          <img src="app-icon.svg" alt="">
+          <span>EveryDoing</span>
+        </div>
+      </div>
+      <div class="window-controls" aria-label="창 제어">
+        <button type="button" class="window-control" id="window-minimize" aria-label="최소화" title="최소화"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5h10"/></svg></button>
+        <button type="button" class="window-control" id="window-maximize" aria-label="최대화" title="최대화"><svg class="maximize-icon" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9"/></svg><svg class="restore-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 3V1.5h7v7H9M1.5 3.5h7v7h-7z"/></svg></button>
+        <button type="button" class="window-control close" id="window-close" aria-label="닫기" title="닫기"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 1.5l9 9m0-9l-9 9"/></svg></button>
+      </div>
+    </header>
     <div class="body">
       <aside class="sidebar">
         <div class="side-brand">
-          <div class="brand">Every<span>Doing</span></div>
-          <button id="settings" class="icon-btn" title="폴더·파일유형 설정">설정</button>
+          <div class="side-brand-label"><img src="app-icon.svg" alt="">EveryDoing</div>
         </div>
         <div class="side-sec">
-          <div class="side-title">달력 이동</div>
+          <div class="side-title">달력 이동 <button id="settings" class="icon-btn" title="폴더·파일유형 설정">설정</button></div>
           <div id="monthNav"></div>
         </div>
         <div class="side-sec">

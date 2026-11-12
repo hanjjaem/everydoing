@@ -64,10 +64,31 @@ impl Default for Config {
 }
 
 pub fn data_dir() -> PathBuf {
+    // Explicitly isolated previews never touch the installed app's data.
+    #[cfg(debug_assertions)]
+    if let Some(path) = preview_data_dir(std::env::args_os()) {
+        let _ = std::fs::create_dir_all(&path);
+        return path;
+    }
     let mut d = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
     d.push("EveryDoing");
     let _ = std::fs::create_dir_all(&d);
     d
+}
+
+#[cfg(debug_assertions)]
+fn preview_data_dir(args: impl IntoIterator<Item = std::ffi::OsString>) -> Option<PathBuf> {
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        if arg == "--preview-data-dir" {
+            if let Some(path) = args.next().map(PathBuf::from).filter(|path| path.is_absolute()) {
+                return Some(path);
+            }
+            eprintln!("--preview-data-dir requires an absolute directory");
+            std::process::exit(2);
+        }
+    }
+    None
 }
 
 fn config_path() -> PathBuf { let mut p = data_dir(); p.push("config.json"); p }
@@ -175,6 +196,14 @@ pub fn save_memos(memos: &BTreeMap<String, String>) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(debug_assertions)]
+    #[test]
+    fn preview_data_dir_uses_only_explicit_absolute_path() {
+        let path = std::env::temp_dir().join("everydoing-preview-test");
+        let args = vec!["everydoing".into(), "--preview-data-dir".into(), path.clone().into_os_string()];
+        assert_eq!(super::preview_data_dir(args), Some(path));
+        assert_eq!(super::preview_data_dir([std::ffi::OsString::from("everydoing")]), None);
+    }
     use super::*;
 
     #[test]
