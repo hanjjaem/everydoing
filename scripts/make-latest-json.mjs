@@ -14,7 +14,7 @@ const sig = join(dir, `${exe}.sig`);
 
 for (const f of [join(dir, exe), sig]) {
   if (!existsSync(f)) {
-    console.error(`없음: ${f}\n서명 빌드(TAURI_SIGNING_PRIVATE_KEY_PATH·_PASSWORD를 넣고 cargo tauri build)를 먼저 하세요.`);
+    console.error(`없음: ${f}\n서명 빌드(TAURI_SIGNING_PRIVATE_KEY·_PASSWORD를 넣고 cargo tauri build, docs/배포-가이드.md 6장)를 먼저 하세요.`);
     process.exit(1);
   }
 }

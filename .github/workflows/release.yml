@@ -1,0 +1,53 @@
+# 새 버전 게시: v<버전> 태그를 푸시하면 Windows 설치본을 빌드·서명하고
+# GitHub Release(설치본 + 업데이트 정보 파일 latest.json)를 만든다.
+# 사용자 앱은 이 Release의 latest.json을 읽어 새 버전 알림을 띄운다.
+# 절차: docs/배포-가이드.md 6장
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # Release를 만들고 파일을 올리기 위해 필요
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 태그와 앱 버전이 다르면 사용자 앱이 버전을 잘못 비교하므로 여기서 멈춘다.
+      - name: 태그와 앱 버전 일치 확인
+        shell: pwsh
+        run: |
+          $v = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ("v$v" -ne "${{ github.ref_name }}") {
+            Write-Error "태그 ${{ github.ref_name }} 와 tauri.conf.json 버전 v$v 가 다릅니다."
+            exit 1
+          }
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      # 앱의 Tauri 본체(2.12)와 같은 줄의 CLI. 미리 빌드된 npm 패키지라 설치가 빠르다.
+      - name: Tauri CLI 설치
+        run: npm install -g @tauri-apps/cli@~2.12
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tauriScript: tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: "EveryDoing ${{ github.ref_name }}"
+          generateReleaseNotes: true
+          releaseDraft: false   # 초안이나 사전 공개면 "latest" 주소에 잡히지 않아 사용자 앱이 새 버전을 못 본다
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true   # 이 앱은 NSIS 설치본만 만든다(기본값은 MSI 우선)

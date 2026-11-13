@@ -17,7 +17,7 @@
 | 배포 | `cargo tauri build` → NSIS 설치본 (UAC 승격 포함) |
 | 플랫폼 | Windows 전용 (NTFS MFT 원시 접근) |
 | 설정 파일 | `%APPDATA%\EveryDoing\config.json` (앱이 관리). 같은 폴더에 `index.json`·`memos.json`·`summaries.json`·`update.json` |
-| 새 버전 게시 | 서명 빌드 → GitHub Release(`v<버전>`, 설치본 + `latest.json`). `docs/배포-가이드.md` 6장 |
+| 새 버전 게시 | `v<버전>` 태그 푸시 → `.github/workflows/release.yml`(tauri-action)이 서명 빌드·Release(설치본 + `latest.json`) 게시. 서명 키는 저장소 Secrets. `docs/배포-가이드.md` 6장 |
 
 ## 프로젝트 결정사항 (왜 이렇게 되어 있는지)
 - MFT 직접 인덱싱 (ntfs-reader) — Everything 의존 제거, .exe 단독 실행.
@@ -55,7 +55,8 @@
 - 업데이트(0.3.0~)는 `tauri-plugin-updater` 2.14로 GitHub Release의 `latest.json`을 읽는다. **선택 기능**:
   자동 확인은 `Config.update_check_enabled`(기본 false)일 때 하루 한 번(결과는 `update.json`에 저장, 20시간 간격),
   수동 확인은 설정의 "지금 확인". 설치는 사용자가 사이드바 버튼을 눌러야 한다.
-  서명 개인키는 `%USERPROFILE%\.tauri\everydoing.key`(저장소 밖). 배포 절차는 `docs/배포-가이드.md` 6장.
+  서명 개인키는 `%USERPROFILE%\.tauri\everydoing.key`(저장소 밖)와 저장소 Secrets(`TAURI_SIGNING_PRIVATE_KEY`·`_PASSWORD`).
+  빌드는 `TAURI_SIGNING_PRIVATE_KEY`만 읽는다(`_PATH`는 무시됨). 배포 절차는 `docs/배포-가이드.md` 6장.
   플러그인 3.x는 Tauri 3 전용이라 쓰지 않는다(Tauri 3 정식판 이후 앱 전체를 옮길 때 함께).
 - 레거시 Python 코드(Everything 시절)는 git 이력에만 남김. 2026-11-11 공공 GitLab 보안 검사(Semgrep) 대응으로 `legacy/` 폴더를 저장소에서 제거함(제거 직전 커밋 3ade0f4에서 확인 가능).
 
