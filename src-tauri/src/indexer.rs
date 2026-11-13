@@ -185,6 +185,14 @@ pub fn prune_month(result: &mut ScanResult, month: &str, gone: impl Fn(&str) -> 
     removed
 }
 
+fn emit_progress(app: Option<&tauri::AppHandle>, drive: &str, scanned: u64, total: u64, matched: u64) {
+    if let Some(app) = app {
+        let _ = app.emit("scan-progress", ScanProgress {
+            drive: drive.to_string(), scanned, total, matched,
+        });
+    }
+}
+
 fn read_mft(roots: &[String], extensions: &[String], app: Option<&tauri::AppHandle>, out: &mut Collected) {
     use ntfs_reader::{file_info::FileInfo, mft::Mft, volume::Volume};
 
@@ -201,15 +209,12 @@ fn read_mft(roots: &[String], extensions: &[String], app: Option<&tauri::AppHand
         let total = mft.max_record;
         let mut scanned = 0u64;
         let mut matched = 0u64;
+        emit_progress(app, drive, 0, total, 0);
         let mut cache = ntfs_reader::file_info::VecCache::default();
         for file in mft.files() {
             scanned += 1;
             if scanned % 10_000 == 0 {
-                if let Some(app) = app {
-                    let _ = app.emit("scan-progress", ScanProgress {
-                        drive: drive.clone(), scanned, total, matched,
-                    });
-                }
+                emit_progress(app, drive, scanned, total, matched);
             }
             if file.is_directory() { continue; }
             let name = match file.get_best_file_name(&mft) {
@@ -226,13 +231,8 @@ fn read_mft(roots: &[String], extensions: &[String], app: Option<&tauri::AppHand
             let unix_secs = info.modified.map(|odt| odt.unix_timestamp()).unwrap_or(0);
             matched += 1;
             out.raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
-
         }
-        if let Some(app) = app {
-            let _ = app.emit("scan-progress", ScanProgress {
-                drive: drive.clone(), scanned, total, matched,
-            });
-        }
+        emit_progress(app, drive, if total > 0 { total } else { scanned }, total, matched);
     }
 }
 
@@ -245,11 +245,13 @@ fn scan_walk(cfg: &crate::store::Config) -> ScanResult {
 }
 
 fn walk_folders(folders: &[String], extensions: &[String], app: Option<&tauri::AppHandle>, out: &mut Collected) {
-    let mut matched = 0u64;
     let mut seen = std::collections::HashSet::new();
 
     for scan_path in folders {
+        let mut visited = 0u64;
+        let mut matched = 0u64;
         let at_drive_root = is_drive_root(scan_path);
+        emit_progress(app, scan_path, 0, 0, 0);
         for entry in walkdir::WalkDir::new(scan_path)
             .follow_links(false)
             .into_iter()
@@ -268,6 +270,10 @@ fn walk_folders(folders: &[String], extensions: &[String], app: Option<&tauri::A
                     continue;
                 }
             };
+            visited += 1;
+            if visited % 200 == 0 {
+                emit_progress(app, scan_path, visited, 0, matched);
+            }
             let path = entry.path();
             if !path.is_file() { continue; }
             let name = match path.file_name().and_then(|n| n.to_str()) {
@@ -292,14 +298,8 @@ fn walk_folders(folders: &[String], extensions: &[String], app: Option<&tauri::A
             };
             matched += 1;
             out.raws.push(RawItem { name, path: full_path, date_modified: unix_secs });
-            if let Some(a) = app {
-                if matched % 50 == 0 {
-                    let _ = a.emit("scan-progress", ScanProgress {
-                        drive: scan_path.clone(), scanned: matched, total: 0, matched,
-                    });
-                }
-            }
         }
+        emit_progress(app, scan_path, visited, 0, matched);
     }
 }
 

@@ -65,6 +65,7 @@
     pointer-events: none;
   }
   .window-title img { width: 18px; height: 18px; flex: none; }
+  .window-ver { font-size: 11px; font-weight: 500; color: var(--ink-3); }
   .window-controls { display: flex; flex-shrink: 0; }
   .window-control {
     display: grid; place-items: center; width: 46px; height: 39px;
@@ -106,6 +107,11 @@
     font: inherit; font-size: 11px; letter-spacing: 0; text-transform: none;
     color: var(--accent); background: none; border: none; cursor: pointer; padding: 0;
   }
+  .side-title button.is-scanning {
+    display: inline-block; pointer-events: none; opacity: .75;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
   /* 사이드바의 넓은 버튼(AI 요약 생성·월간요약 보기) */
   .mininav-today {
@@ -115,7 +121,7 @@
   }
   .mininav-today:hover { background: var(--accent-line); }
 
-  /* 새 버전 알림(새 버전이 있을 때만 보인다) */
+  /* 새 버전 알림(새 버전이 있을 때만 보인다) & 사이드바 버전 상태 */
   .side-update { padding: 12px 16px; border-bottom: 1px solid var(--line); }
   .side-update .mininav-today {
     margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 7px;
@@ -124,6 +130,21 @@
     content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
   }
   .side-update .mininav-today:disabled { cursor: default; opacity: .7; }
+  .side-ver {
+    display: flex; align-items: center; gap: 6px; width: 100%;
+    margin-top: 10px; padding: 4px 2px 0; border: none; background: none;
+    font: inherit; font-size: 11.5px; color: var(--ink-2); text-align: left; cursor: pointer;
+  }
+  .side-ver:hover { color: var(--accent); }
+  .side-ver:empty { display: none; }
+  .side-ver::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    background: var(--ink-3);
+  }
+  .side-ver[data-state="ok"]::before { background: #2e9e5b; }
+  .side-ver[data-state="checking"]::before { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .side-ver[data-state="available"]::before { background: var(--accent); }
+  .side-ver[data-state="error"]::before { background: #d64545; }
 
   /* 스캔 폴더 */
   .side-folder {
@@ -135,8 +156,11 @@
   }
   .side-folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
   .side-empty { font-size: 12.5px; color: var(--ink-2); }
-  .side-status { font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+  .side-status { font-size: 12px; color: var(--ink-2); margin-top: 8px; font-variant-numeric: tabular-nums; }
   .side-status:empty { display: none; }
+  .side-progress { height: 4px; border-radius: 999px; background: var(--accent-line); overflow: hidden; margin-top: 6px; }
+  .side-progress-bar { height: 100%; width: 0%; border-radius: 999px; background: var(--accent); transition: width 0.35s ease; }
+  .side-progress-bar.pulse { width: 100%; animation: pulse 1.2s ease-in-out infinite; }
 
   /* 칩 범례 */
   .legend-row { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-2); padding: 3px 0; }
@@ -349,7 +373,11 @@
   }
   .tl-file:hover { background: var(--hover); }
   .tl-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .tl-name { font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tl-name {
+    display: flex; align-items: center; gap: 4px; min-width: 0;
+    font-size: 14px; color: var(--ink);
+  }
+  .tl-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tl-file:hover .tl-name { color: var(--accent); }
   .tl-meta { display: flex; gap: 6px; font-size: 12px; color: var(--ink-2); min-width: 0; }
   .tl-time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
@@ -447,6 +475,17 @@
     align-self: flex-start;
   }
   .file-more:hover { background: var(--accent-soft); color: var(--accent); }
+  .file-row.is-fresh { background: rgba(46,158,91,.10); }
+  .file-row.is-fresh .file-row-name { color: var(--ink); font-weight: 600; }
+  .fresh-dot {
+    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+    background: #2e9e5b; margin-left: auto;
+  }
+  .fresh-tag {
+    flex-shrink: 0; font-size: 10.5px; font-weight: 600; line-height: 1.2;
+    color: #1f7a44; background: rgba(46,158,91,.14);
+    border-radius: 999px; padding: 1px 6px; margin-left: 6px;
+  }
 
   /* ── 파일 팝오버 메뉴 ───────────────────── */
   #file-menu {
@@ -529,6 +568,31 @@
     0%, 100% { opacity: 0.25; }
     50% { opacity: 0.7; }
   }
+  .scan-banner {
+    margin: 10px 22px 0; border-radius: 10px; overflow: hidden;
+    background: rgba(255,255,255,.78); border: 1px solid var(--accent-line);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .scan-banner-row {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+    font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  .scan-banner-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); animation: pulse 1.1s ease-in-out infinite;
+  }
+  .scan-banner.is-done { border-color: rgba(46,158,91,.35); }
+  .scan-banner.is-done .scan-banner-dot { background: #2e9e5b; animation: none; }
+  .scan-banner-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scan-banner-close {
+    border: none; background: none; color: var(--ink-3); cursor: pointer;
+    font-size: 15px; line-height: 1; padding: 0 3px;
+  }
+  .scan-banner-close:hover { color: var(--ink); }
+  .scan-banner-track { height: 2.5px; background: var(--accent-soft); }
+  .scan-banner.is-done .scan-banner-track { display: none; }
+  .scan-banner-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.35s ease; }
+  .scan-banner-bar.pulse { width: 100%; animation: pulse 1.2s ease-in-out infinite; }
   /* ── 월간요약 모달 (프리미엄) ───────────────── */
   #monthModal {
     position: fixed; inset: var(--titlebar-h) 0 0 0; z-index: 62;
@@ -659,6 +723,7 @@
         <div class="window-title">
           <img src="app-icon.svg" alt="">
           <span>EveryDoing</span>
+          <span id="titleVersion" class="window-ver"></span>
         </div>
       </div>
       <div class="window-controls" aria-label="창 제어">
@@ -682,6 +747,7 @@
           <div class="side-title">스캔 폴더 <span style="display:flex;gap:6px;"><button id="settings" title="폴더·파일 유형 설정">설정</button><button id="refreshScan" title="다시 스캔">↺</button></span></div>
           <div id="sideFolders"></div>
           <div id="scanStatus" class="side-status"></div>
+          <div id="sideProgress" class="side-progress" hidden><div id="sideProgressBar" class="side-progress-bar"></div></div>
         </div>
         <div class="side-sec">
           <div class="side-title">파일 종류</div>
@@ -692,11 +758,20 @@
           <div id="statBox"></div>
           <button id="genSummaries" class="mininav-today" title="설정에서 AI 요약을 켠 경우에만 동작합니다">AI 요약 생성</button>
           <button id="openMonthModal" class="mininav-today" style="margin-top:6px;">월간요약 보기</button>
+          <button id="sideVer" type="button" class="side-ver" title="클릭해 새 버전 확인"></button>
         </div>
       </aside>
 
       <main class="content">
         <div id="msg"></div>
+        <div id="scanBanner" class="scan-banner" hidden>
+          <div class="scan-banner-row">
+            <span class="scan-banner-dot"></span>
+            <span id="scanBannerText" class="scan-banner-text"></span>
+            <button id="scanBannerClose" type="button" class="scan-banner-close" title="닫기">×</button>
+          </div>
+          <div class="scan-banner-track"><div id="scanBannerBar" class="scan-banner-bar"></div></div>
+        </div>
         <div id="progress-wrap" style="display:none;">
           <div id="progress-meta">
             <span id="progress-label">스캔 준비 중...</span>

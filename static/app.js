@@ -2,7 +2,8 @@ const invoke = window.__TAURI__.core.invoke;
 const listen = window.__TAURI__.event.listen;
 
 // The browser development bridge does not expose native window controls.
-if (window.__TAURI__.window?.getCurrentWindow) {
+const isDesktop = !!window.__TAURI__.window?.getCurrentWindow;
+if (isDesktop) {
   const appWindow = window.__TAURI__.window.getCurrentWindow();
   const maximizeButton = document.getElementById("window-maximize");
   document.documentElement.classList.add("desktop-shell");
@@ -38,12 +39,19 @@ let animateNext = true;
 let scanPaths = [];
 let monthStats = { activeDays: 0, totalFiles: 0, busyDate: null, busyCount: 0 };
 let scanning = false;
+let scanProgress = null;   // 스캔 중 마지막으로 받은 scan-progress 페이로드.
+let scanStartedAt = 0;     // 스캔 시작 시각(ms).
+let freshPaths = new Set(); // 직전 스캔에서 새로 찾거나 바뀐 파일 경로들.
+let lastScanDiffText = ""; // 마지막 스캔 결과 요약("새 문서 3개 반영" 등).
+let scanBannerTimer = null;
 let loaded = false;
 let summaries = {};
 let monthlySummaries = {};
 let lastScan = 0;          // 마지막으로 스캔을 마친 시각(Unix 초). 0이면 모름.
 let fileMenuPath = null;
 let updateStatus = null;   // 업데이트 확인 상태(get_update_status·check_update 결과). 모르면 null.
+let updateChecking = false;
+let updateError = "";
 
 function showFileMenu(e, path, fullName) {
   e.stopPropagation();
@@ -128,17 +136,114 @@ function monthsWithRecords(data, year) {
   return months;
 }
 
+// Unix 초 → 오늘이면 "오늘 HH:MM", 다른 날이면 "M월 D일 HH:MM".
+function formatMonthDayTime(secs, now) {
+  const d = new Date(secs * 1000);
+  const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? "오늘 " + hm : (d.getMonth() + 1) + "월 " + d.getDate() + "일 " + hm;
+}
+
 // 설정 패널의 업데이트 상태 문구. now는 지금 시각(Date)이며, 확인한 날이 오늘이면 "오늘 HH:MM"으로 쓴다.
 function updateStatusText(status, now) {
   if (!status) return "";
   const head = "현재 " + status.current_version;
   if (!status.checked_at || !status.latest_version) return head + " · 아직 확인하지 않았습니다";
-  const d = new Date(status.checked_at * 1000);
-  const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-  const when = "마지막 확인 " + (sameDay ? "오늘 " + hm : (d.getMonth() + 1) + "월 " + d.getDate() + "일 " + hm);
+  const when = "마지막 확인 " + formatMonthDayTime(status.checked_at, now);
   const result = status.update_available ? "새 버전이 있습니다(" + status.latest_version + ")" : "최신 버전입니다";
   return head + " · " + result + " · " + when;
+}
+
+// 사이드바 하단 버전·업데이트 확인 상태 배지 문구.
+function formatSidebarUpdate(status, { checking = false, error = "", desktop = true } = {}, now) {
+  if (!status) return checking ? { state: "checking", text: "버전 확인 중…", title: "" } : { state: "", text: "", title: "" };
+  const ver = "v" + status.current_version;
+  if (!desktop) return { state: "", text: ver + " · 개발 미리보기", title: "데스크톱 앱에서 자동 업데이트를 확인합니다." };
+  if (checking) return { state: "checking", text: ver + " · 새 버전 확인 중…", title: "GitHub에서 최신 버전을 확인하고 있습니다." };
+  if (error) return { state: "error", text: ver + " · 확인 실패 (다시 확인)", title: String(error) };
+  if (status.update_available) return { state: "available", text: ver + " → " + status.latest_version + " 업데이트 가능", title: "클릭해 새 버전으로 업데이트합니다." };
+  if (!status.checked_at) {
+    const label = status.check_enabled ? "확인 전 (지금 확인)" : "자동 확인 꺼짐 (확인)";
+    return { state: "", text: ver + " · " + label, title: "클릭해 새 버전을 확인합니다." };
+  }
+  return { state: "ok", text: ver + " · 최신 (" + formatMonthDayTime(status.checked_at, now) + " 확인)", title: "클릭해 지금 다시 확인합니다." };
+}
+
+function countAllFiles(fileMap) {
+  let total = 0;
+  for (const date in (fileMap || {})) total += (fileMap[date] || []).length;
+  return total;
+}
+
+// 이전 색인(prevData)과 새 스캔 결과(nextData)를 비교해 추가·수정·삭제 건수와 새/바뀐 파일 경로 집합을 돌려준다.
+function diffScanResults(prevData, nextData) {
+  const prevMap = new Map();
+  for (const date in (prevData || {})) {
+    for (const f of prevData[date] || []) {
+      if (f && f.path) prevMap.set(f.path, f.modified || 0);
+    }
+  }
+  const newPaths = new Set();
+  const updatedPaths = new Set();
+  const seenNext = new Set();
+  let total = 0;
+  for (const date in (nextData || {})) {
+    for (const f of nextData[date] || []) {
+      if (!f || !f.path) continue;
+      total++;
+      seenNext.add(f.path);
+      if (!prevMap.has(f.path)) newPaths.add(f.path);
+      else if (prevMap.get(f.path) !== (f.modified || 0)) updatedPaths.add(f.path);
+    }
+  }
+  let removed = 0;
+  for (const p of prevMap.keys()) {
+    if (!seenNext.has(p)) removed++;
+  }
+  return {
+    hadPrev: prevMap.size > 0,
+    added: newPaths.size,
+    updated: updatedPaths.size,
+    removed,
+    total,
+    freshPaths: new Set([...newPaths, ...updatedPaths]),
+  };
+}
+
+function formatScanDiff(diff) {
+  if (!diff || !diff.hadPrev) return diff && diff.total ? `총 ${diff.total.toLocaleString()}개 문서` : "";
+  if (diff.added === 0 && diff.updated === 0 && diff.removed === 0) {
+    return `새 문서·변동 없음 (총 ${diff.total.toLocaleString()}개)`;
+  }
+  const parts = [];
+  if (diff.added > 0) parts.push(`새 문서 ${diff.added.toLocaleString()}개`);
+  if (diff.updated > 0) parts.push(`수정 ${diff.updated.toLocaleString()}개`);
+  if (diff.removed > 0) parts.push(`정리 ${diff.removed.toLocaleString()}개`);
+  return parts.join(" · ") + " 반영";
+}
+
+// 스캔 진행률 표시용 문구와 퍼센트(0~100 또는 모르면 null)를 계산한다.
+function formatScanProgress(progress, elapsedSecs) {
+  if (!progress) {
+    const sec = elapsedSecs >= 1 ? ` · ${elapsedSecs}초` : "";
+    return { pct: null, headline: "스캔 준비 중...", detail: "", sidebarText: "스캔 준비 중" + sec };
+  }
+  const { drive, scanned, total, matched } = progress;
+  if (total > 0) {
+    const pct = Math.min(100, Math.max(0, Math.round((scanned / total) * 100)));
+    return {
+      pct,
+      headline: `${drive} 스캔 중 · ${pct}%`,
+      detail: `${scanned.toLocaleString()} / ${total.toLocaleString()} · 파일 ${matched.toLocaleString()}개 발견`,
+      sidebarText: `스캔 중 · ${drive} ${pct}% · ${matched.toLocaleString()}개`,
+    };
+  }
+  return {
+    pct: null,
+    headline: `${drive} 스캔 중`,
+    detail: `${scanned.toLocaleString()}개 확인 · 파일 ${matched.toLocaleString()}개 발견`,
+    sidebarText: `스캔 중 · ${drive} · ${scanned.toLocaleString()}개 확인 (${matched.toLocaleString()}개)`,
+  };
 }
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -244,22 +349,44 @@ async function load() {
 }
 
 // 저장된 상태로 알림을 먼저 그리고, 이어서 확인할 때가 됐으면 확인한다(설정이 꺼져 있으면 접속하지 않는다).
-// 화면을 막지 않게 기다리지 않고 부르며, 오류는 알리지 않는다.
 async function refreshUpdateStatus() {
+  updateError = "";
   try { updateStatus = await invoke("get_update_status"); renderUpdate(); }
   catch (e) { console.warn("업데이트 상태를 읽지 못했습니다:", e); }
-  try { updateStatus = await invoke("check_update", { force: false }); renderUpdate(); }
-  catch (e) { console.warn("새 버전을 확인하지 못했습니다:", e); }
+  if (!isDesktop) return;
+  updateChecking = true;
+  renderUpdate();
+  try {
+    updateStatus = await invoke("check_update", { force: false });
+    updateError = "";
+  } catch (e) {
+    console.warn("새 버전을 확인하지 못했습니다:", e);
+    updateError = String(e && e.message ? e.message : e || "확인 실패");
+  } finally {
+    updateChecking = false;
+    renderUpdate();
+  }
 }
 
-// 사이드바 알림 버튼(새 버전이 있을 때만)과 설정 패널의 상태 문구.
+// 사이드바 알림 버튼·버전 확인 배지·제목 표시줄 버전·설정 패널 문구를 한 번에 갱신한다.
 function renderUpdate() {
+  const titleVer = document.getElementById("titleVersion");
+  if (titleVer) titleVer.textContent = updateStatus && updateStatus.current_version ? "v" + updateStatus.current_version : "";
   const btn = document.getElementById("updateBtn");
   const show = !!(updateStatus && updateStatus.update_available);
   document.getElementById("sideUpdate").hidden = !show;
   // 내려받는 중에는 버튼 문구를 바꾸지 않는다.
   if (show && !btn.disabled) btn.textContent = "새 버전 " + updateStatus.latest_version + " · 업데이트";
-  document.getElementById("updateStatusText").textContent = updateStatusText(updateStatus, new Date());
+  const sideVer = document.getElementById("sideVer");
+  if (sideVer) {
+    const badge = formatSidebarUpdate(updateStatus, { checking: updateChecking, error: updateError, desktop: isDesktop }, new Date());
+    sideVer.dataset.state = badge.state;
+    sideVer.textContent = badge.text;
+    sideVer.title = badge.title;
+  }
+  const baseText = updateStatusText(updateStatus, new Date());
+  const suffix = updateChecking ? " · 확인 중…" : (updateError ? " · 오류: " + updateError : "");
+  document.getElementById("updateStatusText").textContent = baseText + suffix;
 }
 
 // 메모나 요약을 입력하는 중인지. 입력 중에는 화면을 다시 그리지 않는다.
@@ -268,32 +395,82 @@ function isEditing() {
   return !!ae && /^(memo-edit|day-summary-input|tl-summary-input)$/.test(ae.className || "");
 }
 
-// quiet: 저장된 기록을 보여 준 채 뒤에서 스캔한다(큰 진행 표시 없이 사이드바에만 표시).
+function setBarProgress(bar, pct) {
+  if (!bar) return;
+  if (pct === null) {
+    bar.style.transition = "";
+    bar.style.width = "";
+    bar.classList.add("pulse");
+    return;
+  }
+  bar.classList.remove("pulse");
+  bar.style.transition = "width 0.35s ease";
+  bar.style.width = pct + "%";
+}
+
+function hideScanBanner() {
+  if (scanBannerTimer) { clearTimeout(scanBannerTimer); scanBannerTimer = null; }
+  const banner = document.getElementById("scanBanner");
+  if (banner) { banner.hidden = true; banner.classList.remove("is-done"); }
+}
+
+function showDoneBanner(text, hasChanges) {
+  const banner = document.getElementById("scanBanner");
+  const bannerText = document.getElementById("scanBannerText");
+  if (!banner || !bannerText || !text) return;
+  if (scanBannerTimer) { clearTimeout(scanBannerTimer); scanBannerTimer = null; }
+  banner.classList.add("is-done");
+  banner.hidden = false;
+  bannerText.textContent = text;
+  scanBannerTimer = setTimeout(() => { hideScanBanner(); }, hasChanges ? 16000 : 8000);
+}
+
+// quiet: 저장된 기록을 보여 준 채 뒤에서 스캔한다(사이드바·상단 1줄 배너에 진행률 표시).
 async function startScan({ quiet = false } = {}) {
   if (scanning) return;
   scanning = true;
+  scanProgress = null;
+  scanStartedAt = Date.now();
+  const prevData = data;
+  const hadPrev = Object.keys(prevData).length > 0;
+  hideScanBanner();
+
   const msg = document.getElementById("msg");
   const wrap = document.getElementById("progress-wrap");
   const label = document.getElementById("progress-label");
   const sub = document.getElementById("progress-sub");
   const elapsed = document.getElementById("progress-elapsed");
+  const bar = document.getElementById("progress-bar");
+  const banner = document.getElementById("scanBanner");
+  const bannerText = document.getElementById("scanBannerText");
+  const bannerBar = document.getElementById("scanBannerBar");
+
+  const renderProgressUi = () => {
+    const secs = Math.floor((Date.now() - scanStartedAt) / 1000);
+    const info = formatScanProgress(scanProgress, secs);
+    renderScanStatus();
+    label.textContent = info.headline;
+    sub.textContent = info.detail;
+    setBarProgress(bar, info.pct);
+    if (quiet && banner && bannerText) {
+      banner.classList.remove("is-done");
+      banner.hidden = false;
+      const prefix = hadPrev ? "저장된 기록 표시 중 · 새 문서 탐색 중" : "새 문서 탐색 중";
+      const progressPart = scanProgress ? `${info.headline}${info.detail ? " (" + info.detail + ")" : ""}` : info.sidebarText;
+      bannerText.textContent = `${prefix} — ${progressPart}`;
+      setBarProgress(bannerBar, info.pct);
+    }
+  };
 
   msg.textContent = "";
   wrap.style.display = quiet ? "none" : "block";
-  renderScanStatus();
-  label.textContent = "스캔 준비 중...";
-  sub.textContent = "";
   elapsed.textContent = "";
-  const bar = document.getElementById("progress-bar");
-  bar.style.animation = "";
-  bar.style.width = "0%";
-  bar.style.transition = "";
-  bar.classList.add("pulse");
+  renderProgressUi();
 
-  const startTime = Date.now();
   const timer = setInterval(() => {
-    const secs = Math.floor((Date.now() - startTime) / 1000);
+    const secs = Math.floor((Date.now() - scanStartedAt) / 1000);
     elapsed.textContent = `${secs}초째 진행 중`;
+    renderProgressUi();
   }, 1000);
 
   let unlistenProgress = () => {};
@@ -303,29 +480,42 @@ async function startScan({ quiet = false } = {}) {
     unlistenProgress();
     unlistenDone();
     scanning = false;
+    scanProgress = null;
     wrap.style.display = "none";
     renderScanStatus();
   };
 
   try {
     unlistenProgress = await listen("scan-progress", (e) => {
-      const { drive, scanned, total, matched } = e.payload;
-      label.textContent = `${drive} 스캔 중`;
-      sub.textContent = `파일 ${matched.toLocaleString()}개 발견`;
-      if (total > 0) {
-        bar.classList.remove("pulse");
-        bar.style.transition = "width 0.4s ease";
-        bar.style.width = Math.round((scanned / total) * 100) + "%";
-      }
+      scanProgress = e.payload;
+      renderProgressUi();
     });
 
     unlistenDone = await listen("scan-done", async (e) => {
       const result = e.payload;
       // 뒤에서 돈 재스캔이 스캔 폴더 자체를 읽지 못했으면, 화면의 기존 기록을 그대로 둔다.
       const keepShown = quiet && result.root_failed;
-      if (!keepShown) data = result.files || {};
+      const nextFiles = result.files || {};
+      const diff = (!keepShown && hadPrev) ? diffScanResults(prevData, nextFiles) : null;
+      if (!keepShown) {
+        data = nextFiles;
+        if (diff) {
+          freshPaths = diff.freshPaths;
+          lastScanDiffText = formatScanDiff(diff);
+        } else {
+          freshPaths = new Set();
+          const c = countAllFiles(data);
+          lastScanDiffText = c ? `총 ${c.toLocaleString()}개 문서` : "";
+        }
+      }
       if (!result.root_failed) lastScan = result.scanned_at || 0;
       finishScan();
+      if (keepShown) {
+        hideScanBanner();
+      } else {
+        const doneSummary = diff ? formatScanDiff(diff) : lastScanDiffText;
+        showDoneBanner("탐색 완료 · " + (doneSummary || "새 문서 없음"), !!(diff && (diff.added > 0 || diff.updated > 0)));
+      }
       if (result.skipped && result.skipped.length > 0) {
         const extra = result.skipped.length > 3 ? ` 외 ${result.skipped.length - 3}건` : "";
         const head = keepShown ? "스캔 폴더를 읽지 못해 이전 기록을 표시합니다: " : "일부 스캔 또는 캐시 저장 실패: ";
@@ -350,6 +540,7 @@ async function startScan({ quiet = false } = {}) {
     await invoke("start_scan");
   } catch (e) {
     finishScan();
+    hideScanBanner();
     console.error("[startScan] 오류:", e);
     msg.textContent = "스캔을 완료하지 못했습니다: " + (e && e.message ? e.message : e);
   }
@@ -400,8 +591,9 @@ function render() {
       };
       files.slice(0, 2).forEach(f => {
         const row = document.createElement("div");
-        row.className = "file-row";
-        row.title = f.name;
+        const isFresh = freshPaths.has(f.path);
+        row.className = isFresh ? "file-row is-fresh" : "file-row";
+        row.title = isFresh ? f.name + " (새로 찾은·바뀐 문서)" : f.name;
         const ext = extOf(f.name);
         const badge = document.createElement("span");
         badge.className = "file-badge";
@@ -413,13 +605,19 @@ function render() {
         name.textContent = f.name.replace(/\.[^.]+$/, "");
         row.appendChild(badge);
         row.appendChild(name);
+        if (isFresh) {
+          const dot = document.createElement("span");
+          dot.className = "fresh-dot";
+          row.appendChild(dot);
+        }
         row.onclick = (e) => { e.stopPropagation(); showFileMenu(e, f.path, f.name); };
         listEl.appendChild(row);
       });
       if (files.length > 2) {
+        const hiddenFresh = files.slice(2).filter(f => freshPaths.has(f.path)).length;
         const more = document.createElement("div");
         more.className = "file-more";
-        more.textContent = `+${files.length - 2} 더보기`;
+        more.textContent = hiddenFresh > 0 ? `+${files.length - 2} 더보기 (새 ${hiddenFresh})` : `+${files.length - 2} 더보기`;
         more.onclick = (e) => { e.stopPropagation(); selectDate(cellKey); };
         listEl.appendChild(more);
       }
@@ -738,17 +936,29 @@ function renderFolders() {
   });
 }
 
-function formatScanTime(secs) {
-  const d = new Date(secs * 1000), now = new Date();
-  const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-  return sameDay ? "오늘 " + hm : (d.getMonth() + 1) + "월 " + d.getDate() + "일 " + hm;
-}
-
 function renderScanStatus() {
   const el = document.getElementById("scanStatus");
-  if (scanning) el.textContent = "업데이트 중…";
-  else el.textContent = lastScan ? "마지막 스캔 " + formatScanTime(lastScan) : "";
+  const wrap = document.getElementById("sideProgress");
+  const bar = document.getElementById("sideProgressBar");
+  const btn = document.getElementById("refreshScan");
+  if (btn) {
+    btn.classList.toggle("is-scanning", scanning);
+    btn.disabled = scanning;
+    btn.title = scanning ? "문서 탐색 중..." : "다시 스캔";
+  }
+  if (scanning) {
+    const secs = scanStartedAt ? Math.floor((Date.now() - scanStartedAt) / 1000) : 0;
+    const info = formatScanProgress(scanProgress, secs);
+    el.textContent = info.sidebarText;
+    if (wrap) wrap.hidden = false;
+    setBarProgress(bar, info.pct);
+    return;
+  }
+  if (wrap) wrap.hidden = true;
+  setBarProgress(bar, null);
+  if (!lastScan) { el.textContent = ""; return; }
+  const when = formatMonthDayTime(lastScan, new Date());
+  el.textContent = "마지막 스캔 " + when + (lastScanDiffText ? " · " + lastScanDiffText : "");
 }
 
 function renderLegend() {
@@ -883,7 +1093,16 @@ function fileRow(f) {
   main.className = "tl-main";
   const name = document.createElement("span");
   name.className = "tl-name";
-  name.textContent = f.name;
+  const nameText = document.createElement("span");
+  nameText.className = "tl-name-text";
+  nameText.textContent = f.name;
+  name.appendChild(nameText);
+  if (freshPaths.has(f.path)) {
+    const tag = document.createElement("span");
+    tag.className = "fresh-tag";
+    tag.textContent = "새 문서";
+    name.appendChild(tag);
+  }
   main.appendChild(name);
   const time = timeOf(f), folder = folderOf(f.path);
   if (time || folder) {
@@ -1144,21 +1363,26 @@ async function genSummaries() {
   }
 }
 
-// 설정 패널의 '지금 확인' — 설정과 상관없이 바로 확인한다.
+// 설정 패널의 '지금 확인' 및 사이드바 버전 배지 클릭 — 설정과 상관없이 바로 확인한다.
 async function checkUpdateNow() {
+  if (updateChecking) return;
   const btn = document.getElementById("checkUpdateNow");
   const msg = document.getElementById("panelMsg");
-  msg.textContent = "";
-  btn.disabled = true;
-  btn.textContent = "확인 중…";
+  if (msg) msg.textContent = "";
+  updateChecking = true;
+  updateError = "";
+  if (btn) { btn.disabled = true; btn.textContent = "확인 중…"; }
+  renderUpdate();
   try {
     updateStatus = await invoke("check_update", { force: true });
-    renderUpdate();
+    updateError = "";
   } catch (e) {
-    msg.textContent = e;
+    updateError = String(e && e.message ? e.message : e || "확인 실패");
+    if (msg) msg.textContent = e;
   } finally {
-    btn.disabled = false;
-    btn.textContent = "지금 확인";
+    updateChecking = false;
+    if (btn) { btn.disabled = false; btn.textContent = "지금 확인"; }
+    renderUpdate();
   }
 }
 
@@ -1233,6 +1457,11 @@ document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
 document.getElementById("updateBtn").onclick = installUpdate;
 document.getElementById("checkUpdateNow").onclick = checkUpdateNow;
+document.getElementById("sideVer")?.addEventListener("click", () => {
+  if (updateStatus && updateStatus.update_available) installUpdate();
+  else if (isDesktop) checkUpdateNow();
+});
+document.getElementById("scanBannerClose")?.addEventListener("click", hideScanBanner);
 document.getElementById("closePanel").onclick = closePanel;
 document.getElementById("scrim").onclick = () => { closePanel(); closeTimeline(); };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePanel(); closeTimeline(); closeMonthModal(); } });
