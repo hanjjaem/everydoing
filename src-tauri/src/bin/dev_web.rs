@@ -79,6 +79,11 @@ fn invoke(state: &mut State, cmd: &str, args: &Value) -> Result<Value, String> {
         }
         "get_summaries" | "get_monthly_summaries" => Ok(json!({})),
         "save_summary" | "generate_summaries" | "generate_monthly_summary" => Err("브라우저 개발 모드에서는 AI 요약을 지원하지 않습니다.".into()),
+        "get_update_status" => Ok(json!({
+            "current_version": env!("CARGO_PKG_VERSION"), "latest_version": null,
+            "checked_at": 0, "update_available": false, "check_enabled": false,
+        })),
+        "check_update" | "install_update" => Err("브라우저 개발 모드에서는 업데이트를 지원하지 않습니다.".into()),
         "prune_deleted" => {
             let removed = match state.scan {
                 Some(ref mut scan) => indexer::prune_month(scan, get("month"), |path| !Path::new(path).exists()),

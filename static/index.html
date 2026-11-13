@@ -115,6 +115,16 @@
   }
   .mininav-today:hover { background: var(--accent-line); }
 
+  /* 새 버전 알림(새 버전이 있을 때만 보인다) */
+  .side-update { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .side-update .mininav-today {
+    margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .side-update .mininav-today::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  }
+  .side-update .mininav-today:disabled { cursor: default; opacity: .7; }
+
   /* 스캔 폴더 */
   .side-folder {
     display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2);
@@ -618,6 +628,14 @@
     <input id="extInput" type="text" placeholder="확장자 (예: csv)" size="12">
     <button id="addExt">추가</button>
     <hr>
+    <strong>업데이트</strong>
+    <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px;cursor:pointer;">
+      <input id="updateCheckEnabled" type="checkbox">
+      시작할 때 새 버전 확인
+    </label>
+    <p style="font-size:13px;color:var(--ink-2);margin:6px 0;">켜면 하루에 한 번 GitHub에서 최신 버전 번호만 확인합니다. 파일이나 사용 기록은 보내지 않습니다.</p>
+    <p id="updateStatusText" style="font-size:13px;color:var(--ink-2);margin:6px 0;"></p>
+    <button id="checkUpdateNow">지금 확인</button>
     <hr>
     <strong>AI 요약 (OpenAI) · 선택 기능</strong>
     <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px;cursor:pointer;">
@@ -656,6 +674,9 @@
         </div>
         <div class="side-search">
           <input id="search" type="text" placeholder="파일명·폴더 검색" title="전체 기간에서 찾습니다">
+        </div>
+        <div id="sideUpdate" class="side-update" hidden>
+          <button id="updateBtn" class="mininav-today" type="button"></button>
         </div>
         <div class="side-sec">
           <div class="side-title">스캔 폴더 <span style="display:flex;gap:6px;"><button id="settings" title="폴더·파일 유형 설정">설정</button><button id="refreshScan" title="다시 스캔">↺</button></span></div>

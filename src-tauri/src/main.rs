@@ -7,7 +7,9 @@ mod summarizer;
 use std::collections::BTreeMap;
 use indexer::ScanResult;
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_updater::UpdaterExt;
 use std::sync::Mutex;
+use std::time::Duration;
 
 static MEMO_WRITE: Mutex<()> = Mutex::new(());
 static SUMMARY_WRITE: Mutex<()> = Mutex::new(());
@@ -76,6 +78,7 @@ fn save_config(
     extensions: Vec<String>,
     openai_api_key: Option<String>,
     ai_summary_enabled: Option<bool>,
+    update_check_enabled: Option<bool>,
 ) -> Result<(), String> {
     let (paths, exts) = store::validate_config(scan_paths, extensions)?;
     let mut cfg = store::load_config()?;
@@ -87,7 +90,86 @@ fn save_config(
     if let Some(enabled) = ai_summary_enabled {
         cfg.ai_summary_enabled = enabled;
     }
+    if let Some(enabled) = update_check_enabled {
+        cfg.update_check_enabled = enabled;
+    }
     store::save_config(cfg)
+}
+
+#[derive(serde::Serialize)]
+struct UpdateStatus {
+    current_version: String,
+    latest_version: Option<String>,
+    checked_at: i64,
+    update_available: bool,
+    check_enabled: bool,
+}
+
+fn update_status(app: &AppHandle, cache: Option<&store::UpdateCache>, check_enabled: bool) -> UpdateStatus {
+    let current_version = app.package_info().version.to_string();
+    let latest_version = cache.map(|c| c.latest_version.clone());
+    let update_available = latest_version.as_deref()
+        .map(|latest| store::is_newer_version(latest, &current_version))
+        .unwrap_or(false);
+    UpdateStatus {
+        current_version,
+        latest_version,
+        checked_at: cache.map(|c| c.checked_at).unwrap_or(0),
+        update_available,
+        check_enabled,
+    }
+}
+
+async fn find_update(app: &AppHandle) -> Result<Option<tauri_plugin_updater::Update>, String> {
+    let updater = app.updater_builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("업데이트 확인을 준비하지 못했습니다: {}", e))?;
+    updater.check().await.map_err(|e| format!("새 버전을 확인하지 못했습니다: {}", e))
+}
+
+/// 저장된 확인 결과와 설정만 읽는다. 네트워크에 접속하지 않는다.
+#[tauri::command]
+fn get_update_status(app: AppHandle) -> Result<UpdateStatus, String> {
+    let cfg = store::load_config()?;
+    Ok(update_status(&app, store::load_update_cache().as_ref(), cfg.update_check_enabled))
+}
+
+/// force=false(시작할 때): 설정이 켜져 있고 확인할 때가 됐을 때만 접속한다.
+/// force=true('지금 확인' 버튼): 설정과 상관없이 접속한다.
+#[tauri::command]
+async fn check_update(app: AppHandle, force: bool) -> Result<UpdateStatus, String> {
+    let cfg = store::load_config()?;
+    let cache = store::load_update_cache();
+    let now = chrono::Utc::now().timestamp();
+    if !force && (!cfg.update_check_enabled || !store::update_check_due(cache.as_ref(), now)) {
+        return Ok(update_status(&app, cache.as_ref(), cfg.update_check_enabled));
+    }
+    let latest_version = match find_update(&app).await? {
+        Some(update) => update.version,
+        None => app.package_info().version.to_string(),
+    };
+    let cache = store::UpdateCache { latest_version, checked_at: now };
+    store::save_update_cache(&cache)?;
+    Ok(update_status(&app, Some(&cache), cfg.update_check_enabled))
+}
+
+/// 사용자가 업데이트 버튼을 눌렀을 때만 불린다.
+/// Windows에서는 설치 프로그램을 실행하면서 앱이 끝나므로, 성공하면 반환되지 않는다.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<String, String> {
+    let Some(update) = find_update(&app).await? else {
+        // 방금 확인한 결과를 남겨, 화면을 다시 그리면 알림 버튼이 사라지게 한다(캐시라 저장 실패는 무시).
+        let _ = store::save_update_cache(&store::UpdateCache {
+            latest_version: app.package_info().version.to_string(),
+            checked_at: chrono::Utc::now().timestamp(),
+        });
+        return Ok("이미 최신 버전입니다".into());
+    };
+    update.download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| format!("업데이트를 설치하지 못했습니다: {}", e))?;
+    Ok("업데이트를 설치했습니다. 앱을 다시 시작해 주세요.".into())
 }
 
 #[tauri::command]
@@ -204,13 +286,15 @@ fn copy_text(text: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             load_cache, start_scan, prune_deleted,
             open_path, pick_folder,
             get_config, save_config,
             get_memos, save_memo, copy_text,
             get_summaries, generate_summaries, save_summary,
-            get_monthly_summaries, generate_monthly_summary
+            get_monthly_summaries, generate_monthly_summary,
+            get_update_status, check_update, install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

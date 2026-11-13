@@ -43,6 +43,7 @@ let summaries = {};
 let monthlySummaries = {};
 let lastScan = 0;          // 마지막으로 스캔을 마친 시각(Unix 초). 0이면 모름.
 let fileMenuPath = null;
+let updateStatus = null;   // 업데이트 확인 상태(get_update_status·check_update 결과). 모르면 null.
 
 function showFileMenu(e, path, fullName) {
   e.stopPropagation();
@@ -127,6 +128,19 @@ function monthsWithRecords(data, year) {
   return months;
 }
 
+// 설정 패널의 업데이트 상태 문구. now는 지금 시각(Date)이며, 확인한 날이 오늘이면 "오늘 HH:MM"으로 쓴다.
+function updateStatusText(status, now) {
+  if (!status) return "";
+  const head = "현재 " + status.current_version;
+  if (!status.checked_at || !status.latest_version) return head + " · 아직 확인하지 않았습니다";
+  const d = new Date(status.checked_at * 1000);
+  const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  const when = "마지막 확인 " + (sameDay ? "오늘 " + hm : (d.getMonth() + 1) + "월 " + d.getDate() + "일 " + hm);
+  const result = status.update_available ? "새 버전이 있습니다(" + status.latest_version + ")" : "최신 버전입니다";
+  return head + " · " + result + " · " + when;
+}
+
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 const EXT_TYPE = {
@@ -201,6 +215,7 @@ async function load() {
     msg.textContent = "";
     data = {};
     renderAll();
+    refreshUpdateStatus();
     openPanel();
     return;
   }
@@ -215,6 +230,7 @@ async function load() {
     msg.textContent = "";
     animateNext = true;
     renderAll();
+    refreshUpdateStatus();
     // 자동 생성하지 않음. AI 요약은 사용자가 '_AI 요약 생성_' 버튼을 눌렀을 때만 전송된다.
     // 저장된 기록을 먼저 보여 주고, 마지막 스캔 뒤에 바뀐 파일은 뒤에서 다시 스캔해 반영한다.
     await startScan({ quiet: true });
@@ -222,7 +238,28 @@ async function load() {
   }
 
   console.log("[load] 캐시 없음 → startScan 호출");
+  // 첫 스캔은 오래 걸릴 수 있어, 업데이트 확인은 스캔을 기다리지 않고 시작한다.
+  refreshUpdateStatus();
   await startScan();
+}
+
+// 저장된 상태로 알림을 먼저 그리고, 이어서 확인할 때가 됐으면 확인한다(설정이 꺼져 있으면 접속하지 않는다).
+// 화면을 막지 않게 기다리지 않고 부르며, 오류는 알리지 않는다.
+async function refreshUpdateStatus() {
+  try { updateStatus = await invoke("get_update_status"); renderUpdate(); }
+  catch (e) { console.warn("업데이트 상태를 읽지 못했습니다:", e); }
+  try { updateStatus = await invoke("check_update", { force: false }); renderUpdate(); }
+  catch (e) { console.warn("새 버전을 확인하지 못했습니다:", e); }
+}
+
+// 사이드바 알림 버튼(새 버전이 있을 때만)과 설정 패널의 상태 문구.
+function renderUpdate() {
+  const btn = document.getElementById("updateBtn");
+  const show = !!(updateStatus && updateStatus.update_available);
+  document.getElementById("sideUpdate").hidden = !show;
+  // 내려받는 중에는 버튼 문구를 바꾸지 않는다.
+  if (show && !btn.disabled) btn.textContent = "새 버전 " + updateStatus.latest_version + " · 업데이트";
+  document.getElementById("updateStatusText").textContent = updateStatusText(updateStatus, new Date());
 }
 
 // 메모나 요약을 입력하는 중인지. 입력 중에는 화면을 다시 그리지 않는다.
@@ -1047,6 +1084,8 @@ async function openPanel() {
   editExts = (cfg.extensions || []).slice();
   document.getElementById("apiKeyInput").value = cfg.openai_api_key || "";
   document.getElementById("aiEnabled").checked = !!cfg.ai_summary_enabled;
+  document.getElementById("updateCheckEnabled").checked = !!cfg.update_check_enabled;
+  renderUpdate();
   renderExts();
   renderPaths();
   document.body.setAttribute("data-settings", "open");
@@ -1069,8 +1108,9 @@ async function savePaths() {
   }
   const apiKey = document.getElementById("apiKeyInput").value.trim();
   const aiEnabled = document.getElementById("aiEnabled").checked;
+  const updateCheckEnabled = document.getElementById("updateCheckEnabled").checked;
   try {
-    await invoke("save_config", { scanPaths: editPaths, extensions: editExts, openaiApiKey: apiKey, aiSummaryEnabled: aiEnabled });
+    await invoke("save_config", { scanPaths: editPaths, extensions: editExts, openaiApiKey: apiKey, aiSummaryEnabled: aiEnabled, updateCheckEnabled });
   } catch (e) {
     document.getElementById("panelMsg").textContent = e;
     return;
@@ -1102,6 +1142,45 @@ async function genSummaries() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = prev; }
   }
+}
+
+// 설정 패널의 '지금 확인' — 설정과 상관없이 바로 확인한다.
+async function checkUpdateNow() {
+  const btn = document.getElementById("checkUpdateNow");
+  const msg = document.getElementById("panelMsg");
+  msg.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "확인 중…";
+  try {
+    updateStatus = await invoke("check_update", { force: true });
+    renderUpdate();
+  } catch (e) {
+    msg.textContent = e;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "지금 확인";
+  }
+}
+
+// 사이드바의 업데이트 버튼. 확인을 받은 뒤에만 내려받는다.
+// 설치가 시작되면 앱이 닫히므로, 돌아오는 경우는 이미 최신이거나 실패한 때뿐이다.
+async function installUpdate() {
+  if (!updateStatus || !updateStatus.update_available) return;
+  const ok = confirm("EveryDoing을 " + updateStatus.latest_version + " 버전으로 업데이트합니다.\n앱이 닫혔다가 설치 후 다시 열립니다. 계속할까요?");
+  if (!ok) return;
+  const btn = document.getElementById("updateBtn");
+  btn.disabled = true;
+  btn.textContent = "내려받는 중…";
+  try {
+    const message = await invoke("install_update");
+    btn.disabled = false;
+    alert(message);
+    updateStatus = await invoke("get_update_status").catch(() => updateStatus);
+  } catch (e) {
+    btn.disabled = false;
+    alert("업데이트하지 못했습니다: " + e);
+  }
+  renderUpdate();
 }
 
 function openMonthModal() {
@@ -1152,6 +1231,8 @@ document.getElementById("monthModal").onclick = (e) => { if (e.target.id === "mo
 document.getElementById("addPath").onclick = addPath;
 document.getElementById("addExt").onclick = addExt;
 document.getElementById("savePaths").onclick = savePaths;
+document.getElementById("updateBtn").onclick = installUpdate;
+document.getElementById("checkUpdateNow").onclick = checkUpdateNow;
 document.getElementById("closePanel").onclick = closePanel;
 document.getElementById("scrim").onclick = () => { closePanel(); closeTimeline(); };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closePanel(); closeTimeline(); closeMonthModal(); } });

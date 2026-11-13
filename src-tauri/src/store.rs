@@ -49,6 +49,10 @@ pub struct Config {
     /// 이 값이 false면 파일명이 외부(OpenAI)로 전송되지 않는다.
     #[serde(default)]
     pub ai_summary_enabled: bool,
+    /// 시작할 때 새 버전 확인 여부. 기본값 false(꺼짐).
+    /// 이 값이 false면 사용자가 '지금 확인'을 누르기 전에는 GitHub에 접속하지 않는다.
+    #[serde(default)]
+    pub update_check_enabled: bool,
 }
 
 impl Default for Config {
@@ -59,6 +63,7 @@ impl Default for Config {
                 .iter().map(|s| s.to_string()).collect(),
             openai_api_key: String::new(),
             ai_summary_enabled: false,
+            update_check_enabled: false,
         }
     }
 }
@@ -194,6 +199,62 @@ pub fn save_memos(memos: &BTreeMap<String, String>) -> Result<(), String> {
     write_json(&memos_path(), memos)
 }
 
+// 아래 업데이트 확인 항목은 데스크톱 앱(main.rs)만 쓴다. 브라우저 개발 모드(dev_web)는 업데이트를 지원하지 않는다.
+
+/// 마지막 업데이트 확인 결과.
+#[allow(dead_code)]
+#[derive(Serialize, Deserialize, Clone)]
+pub struct UpdateCache {
+    pub latest_version: String,
+    /// 확인한 시각(Unix 초).
+    pub checked_at: i64,
+}
+
+#[allow(dead_code)]
+fn update_cache_path() -> PathBuf { let mut p = data_dir(); p.push("update.json"); p }
+
+/// 저장된 확인 결과. 없거나 깨졌으면 None(다시 확인하면 된다).
+#[allow(dead_code)]
+pub fn load_update_cache() -> Option<UpdateCache> {
+    let s = std::fs::read_to_string(update_cache_path()).ok()?;
+    serde_json::from_str(&s).ok()
+}
+
+#[allow(dead_code)]
+pub fn save_update_cache(cache: &UpdateCache) -> Result<(), String> {
+    write_json(&update_cache_path(), cache)
+}
+
+const UPDATE_CHECK_INTERVAL_SECS: i64 = 20 * 3600;
+
+/// 다시 확인할 때가 됐는지. 기록이 없거나, 시계가 거꾸로 갔거나, 20시간이 지났으면 true.
+#[allow(dead_code)]
+pub fn update_check_due(cache: Option<&UpdateCache>, now: i64) -> bool {
+    match cache {
+        None => true,
+        Some(c) => c.checked_at > now || now - c.checked_at >= UPDATE_CHECK_INTERVAL_SECS,
+    }
+}
+
+fn parse_version(v: &str) -> Option<(u64, u64, u64)> {
+    let v = v.trim();
+    let v = v.strip_prefix('v').unwrap_or(v);
+    let core = v.split('-').next()?;
+    let mut parts = core.split('.').map(|p| p.parse::<u64>().ok());
+    let (major, minor, patch) = (parts.next()??, parts.next()??, parts.next()??);
+    if parts.next().is_some() { return None; }
+    Some((major, minor, patch))
+}
+
+/// latest가 current보다 새 버전인지("x.y.z" 숫자 비교). 읽을 수 없는 버전이면 false.
+#[allow(dead_code)]
+pub fn is_newer_version(latest: &str, current: &str) -> bool {
+    match (parse_version(latest), parse_version(current)) {
+        (Some(l), Some(c)) => l > c,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(debug_assertions)]
@@ -301,6 +362,41 @@ mod tests {
         assert_eq!(loaded.scanned_at, 0);
         assert!(!loaded.root_failed);
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn update_check_due_boundaries() {
+        let now = 1_800_000_000;
+        let at = |checked_at| UpdateCache { latest_version: "0.3.0".into(), checked_at };
+        assert!(update_check_due(None, now), "기록이 없으면 확인한다");
+        assert!(!update_check_due(Some(&at(now)), now));
+        assert!(!update_check_due(Some(&at(now - 20 * 3600 + 1)), now), "20시간이 안 됐으면 건너뛴다");
+        assert!(update_check_due(Some(&at(now - 20 * 3600)), now), "딱 20시간이면 확인한다");
+        assert!(update_check_due(Some(&at(now + 1)), now), "시계가 거꾸로 갔으면 확인한다");
+    }
+
+    #[test]
+    fn is_newer_version_compares_numbers() {
+        assert!(is_newer_version("0.3.1", "0.3.0"));
+        assert!(is_newer_version("0.10.0", "0.9.9"), "문자열이 아니라 숫자로 비교한다");
+        assert!(is_newer_version("1.0.0", "0.99.99"));
+        assert!(!is_newer_version("0.3.0", "0.3.0"));
+        assert!(!is_newer_version("0.2.9", "0.3.0"));
+        assert!(is_newer_version("v0.4.0", "0.3.0"), "앞의 v는 허용한다");
+        assert!(!is_newer_version("0.3.0-beta.1", "0.3.0"), "프리릴리스 꼬리는 무시한다");
+        assert!(is_newer_version("0.3.1-rc", "0.3.0"));
+        assert!(!is_newer_version("abc", "0.3.0"), "읽을 수 없으면 false");
+        assert!(!is_newer_version("0.4", "0.3.0"));
+        assert!(!is_newer_version("0.4.0.1", "0.3.0"));
+        assert!(!is_newer_version("0.4.0", ""));
+    }
+
+    #[test]
+    fn config_without_update_field_reads_as_off() {
+        let old = r#"{"scan_paths":["D:\\a"],"extensions":["pdf"],"openai_api_key":"","ai_summary_enabled":false}"#;
+        let cfg: Config = serde_json::from_str(old).unwrap();
+        assert!(!cfg.update_check_enabled);
+        assert!(!Config::default().update_check_enabled);
     }
 
     #[test]
