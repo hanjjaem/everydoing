@@ -39,6 +39,8 @@ pub fn validate_config(
     Ok((scan_paths, exts))
 }
 
+fn default_true() -> bool { true }
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub scan_paths: Vec<String>,
@@ -49,9 +51,9 @@ pub struct Config {
     /// 이 값이 false면 파일명이 외부(OpenAI)로 전송되지 않는다.
     #[serde(default)]
     pub ai_summary_enabled: bool,
-    /// 시작할 때 새 버전 확인 여부. 기본값 false(꺼짐).
+    /// 시작할 때 새 버전 확인 여부. 기본값 true(켜짐).
     /// 이 값이 false면 사용자가 '지금 확인'을 누르기 전에는 GitHub에 접속하지 않는다.
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub update_check_enabled: bool,
 }
 
@@ -63,7 +65,7 @@ impl Default for Config {
                 .iter().map(|s| s.to_string()).collect(),
             openai_api_key: String::new(),
             ai_summary_enabled: false,
-            update_check_enabled: false,
+            update_check_enabled: true,
         }
     }
 }
@@ -392,11 +394,15 @@ mod tests {
     }
 
     #[test]
-    fn config_without_update_field_reads_as_off() {
+    fn config_without_update_field_reads_as_on() {
         let old = r#"{"scan_paths":["D:\\a"],"extensions":["pdf"],"openai_api_key":"","ai_summary_enabled":false}"#;
         let cfg: Config = serde_json::from_str(old).unwrap();
-        assert!(!cfg.update_check_enabled);
-        assert!(!Config::default().update_check_enabled);
+        assert!(cfg.update_check_enabled);
+        assert!(Config::default().update_check_enabled);
+
+        let off = r#"{"scan_paths":["D:\\a"],"extensions":["pdf"],"openai_api_key":"","ai_summary_enabled":false,"update_check_enabled":false}"#;
+        let cfg_off: Config = serde_json::from_str(off).unwrap();
+        assert!(!cfg_off.update_check_enabled);
     }
 
     #[test]

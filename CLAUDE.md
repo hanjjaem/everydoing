@@ -52,8 +52,8 @@
     매번 confirm 동의 시에만 전송. 전송 대상은 파일명뿐(파일 내용 아님).
   - 설정 패널에 전송 고지 문구 노출.
   - TODO(여력 시): 외부 전송 없는 로컬 요약 경로(예: TextRank류) 추가.
-- 업데이트(0.3.0~)는 `tauri-plugin-updater` 2.14로 GitHub Release의 `latest.json`을 읽는다. **선택 기능**:
-  자동 확인은 `Config.update_check_enabled`(기본 false)일 때 하루 한 번(결과는 `update.json`에 저장, 20시간 간격),
+- 업데이트(0.3.0~)는 `tauri-plugin-updater` 2.14로 GitHub Release의 `latest.json`을 읽는다:
+  자동 확인은 `Config.update_check_enabled`(기본 true, 설정에서 해제 가능)일 때 하루 한 번(결과는 `update.json`에 저장, 20시간 간격),
   수동 확인은 설정의 "지금 확인". 설치는 사용자가 사이드바 버튼을 눌러야 한다.
   서명 개인키는 `%USERPROFILE%\.tauri\everydoing.key`(저장소 밖)와 저장소 Secrets(`TAURI_SIGNING_PRIVATE_KEY`·`_PASSWORD`).
   빌드는 `TAURI_SIGNING_PRIVATE_KEY`만 읽는다(`_PATH`는 무시됨). 배포 절차는 `docs/배포-가이드.md` 6장.
